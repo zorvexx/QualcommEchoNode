@@ -1,0 +1,14 @@
+{
+  "timestamp": 1787028601.8308234,
+  "machine_id": "TEST_01",
+  "machine_name": "TEST_01",
+  "behavioral_cluster": 0,
+  "similarity": 98.5,
+  "anomaly_score": 0.0,
+  "behavior_drift": 0.0,
+  "confidence": 99.0,
+  "status": "KNOWN_NORMAL_STATE",
+  "modality_contributions": {},
+  "top_features": [],
+  "hardware_actuation": {}
+}

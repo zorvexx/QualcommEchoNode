@@ -1,0 +1,74 @@
+[
+  {
+    "event_id": "EVT_001",
+    "timestamp": "2026-08-15 11:55:03",
+    "operating_state": 1,
+    "anomaly_score": 0.45,
+    "behavior_drift": 35.0,
+    "modality_contribution": {
+      "vibration": 0.8,
+      "audio": 0.2
+    },
+    "top_features": [
+      "acc_mag_kurtosis"
+    ],
+    "embedding": [
+      1.201068639755249,
+      -1.931841254234314,
+      -1.8599709272384644,
+      -0.8941879868507385,
+      1.250916600227356,
+      -0.39010483026504517,
+      -0.91843181848526,
+      1.1233587265014648
+    ]
+  },
+  {
+    "event_id": "EVT_002",
+    "timestamp": "2026-08-15 11:55:03",
+    "operating_state": 2,
+    "anomaly_score": 0.75,
+    "behavior_drift": 65.0,
+    "modality_contribution": {
+      "audio": 0.9,
+      "vibration": 0.1
+    },
+    "top_features": [
+      "audio_spectral_entropy"
+    ],
+    "embedding": [
+      -1.0255268812179565,
+      0.14063112437725067,
+      -1.3771342039108276,
+      0.5161198973655701,
+      0.3380873501300812,
+      0.5450340509414673,
+      -1.2990847826004028,
+      -0.5212908387184143
+    ]
+  },
+  {
+    "event_id": "EVT_003",
+    "timestamp": "2026-08-15 11:55:03",
+    "operating_state": 1,
+    "anomaly_score": 0.48,
+    "behavior_drift": 38.0,
+    "modality_contribution": {
+      "vibration": 0.85,
+      "audio": 0.15
+    },
+    "top_features": [
+      "acc_mag_kurtosis"
+    ],
+    "embedding": [
+      1.2537200450897217,
+      -1.925258994102478,
+      -1.9049674272537231,
+      -0.8533419966697693,
+      1.2541781663894653,
+      -0.3429732322692871,
+      -0.9622292518615723,
+      1.1182329654693604
+    ]
+  }
+]

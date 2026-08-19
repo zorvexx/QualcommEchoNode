@@ -1,0 +1,7 @@
+{
+  "std_gx": 1.0,
+  "std_gy": 1.0,
+  "std_gz": 1.0,
+  "max_noise_std_threshold": 500.0,
+  "is_stable": true
+}

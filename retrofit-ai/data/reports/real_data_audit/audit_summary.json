@@ -1,0 +1,23 @@
+{
+  "num_samples": 9840,
+  "recording_duration_sec": 137.2,
+  "timestamp_monotonic": true,
+  "strictly_increasing": true,
+  "timestamp_duplicates_count": 0,
+  "negative_time_jumps_count": 0,
+  "effective_sampling_freq_hz": 71.71,
+  "median_sampling_freq_hz": 200.0,
+  "median_dt_ms": 5.0,
+  "dt_min_ms": 1.0,
+  "dt_max_ms": 190.0,
+  "dt_mean_ms": 13.94,
+  "dt_std_ms": 26.27,
+  "dt_p25_ms": 5.0,
+  "dt_p75_ms": 6.0,
+  "dt_p95_ms": 91.0,
+  "gaps_gt_10ms": 1281,
+  "gaps_gt_20ms": 1112,
+  "gaps_gt_50ms": 1034,
+  "gaps_gt_100ms": 84,
+  "missing_values_total": 0
+}

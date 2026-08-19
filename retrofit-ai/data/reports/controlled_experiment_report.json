@@ -1,0 +1,134 @@
+{
+  "selected_features": [
+    "acc_mag_wavelet_band_1_energy",
+    "acc_z_variance",
+    "acc_mag_wavelet_band_0_energy",
+    "acc_x_variance",
+    "acc_y_max",
+    "acc_x_min",
+    "acc_x_max",
+    "gyro_mag_skewness",
+    "acc_z_iqr",
+    "acc_y_rms",
+    "acc_x_iqr",
+    "acc_y_iqr",
+    "gyro_mag_iqr",
+    "acc_y_mean",
+    "temp_slope",
+    "acc_y_median",
+    "temp_rate_of_fall",
+    "acc_mag_autocorr_lag1",
+    "audio_min",
+    "audio_kurtosis",
+    "acc_x_mean",
+    "acc_x_rms",
+    "audio_mean",
+    "acc_x_sma",
+    "acc_x_median",
+    "audio_autocorr_lag1",
+    "temp_moving_std",
+    "gyro_mag_median",
+    "audio_jerk_rms",
+    "acc_z_rms"
+  ],
+  "fpr_unseen_normal": 0.1765,
+  "det_rate_pert_a": 0.0,
+  "det_rate_pert_b": 0.0,
+  "region_summary": {
+    "TRAIN_BASELINE": {
+      "n_windows": 11,
+      "decisions": {
+        "KNOWN_NORMAL_STATE": 10,
+        "UNKNOWN_UNSEEN_BEHAVIOR": 1,
+        "CRITICAL_ANOMALY": 0
+      },
+      "iso_score_dist": {
+        "mean": -0.073704,
+        "std": 0.044307,
+        "min": -0.127579,
+        "max": 0.029588
+      },
+      "modality_avg": {
+        "vibration_pct": 0.9,
+        "thermal_pct": 0.0,
+        "acoustic_pct": 0.0
+      }
+    },
+    "PERTURBATION_A": {
+      "n_windows": 4,
+      "decisions": {
+        "KNOWN_NORMAL_STATE": 4,
+        "UNKNOWN_UNSEEN_BEHAVIOR": 0,
+        "CRITICAL_ANOMALY": 0
+      },
+      "iso_score_dist": {
+        "mean": -0.016401,
+        "std": 0.037421,
+        "min": -0.070087,
+        "max": 0.012572
+      },
+      "modality_avg": {
+        "vibration_pct": 0.8,
+        "thermal_pct": 0.0,
+        "acoustic_pct": 0.0
+      }
+    },
+    "UNSEEN_NORMAL": {
+      "n_windows": 17,
+      "decisions": {
+        "KNOWN_NORMAL_STATE": 14,
+        "UNKNOWN_UNSEEN_BEHAVIOR": 3,
+        "CRITICAL_ANOMALY": 0
+      },
+      "iso_score_dist": {
+        "mean": -0.032743,
+        "std": 0.038873,
+        "min": -0.073388,
+        "max": 0.048391
+      },
+      "modality_avg": {
+        "vibration_pct": 0.8,
+        "thermal_pct": 0.0,
+        "acoustic_pct": 0.0
+      }
+    },
+    "PERTURBATION_B": {
+      "n_windows": 4,
+      "decisions": {
+        "KNOWN_NORMAL_STATE": 4,
+        "UNKNOWN_UNSEEN_BEHAVIOR": 0,
+        "CRITICAL_ANOMALY": 0
+      },
+      "iso_score_dist": {
+        "mean": -0.021115,
+        "std": 0.021888,
+        "min": -0.05122,
+        "max": -0.00241
+      },
+      "modality_avg": {
+        "vibration_pct": 0.6,
+        "thermal_pct": 0.0,
+        "acoustic_pct": 0.0
+      }
+    },
+    "RECOVERY": {
+      "n_windows": 11,
+      "decisions": {
+        "KNOWN_NORMAL_STATE": 9,
+        "UNKNOWN_UNSEEN_BEHAVIOR": 2,
+        "CRITICAL_ANOMALY": 0
+      },
+      "iso_score_dist": {
+        "mean": -0.005915,
+        "std": 0.026544,
+        "min": -0.049689,
+        "max": 0.025379
+      },
+      "modality_avg": {
+        "vibration_pct": 0.9,
+        "thermal_pct": 0.0,
+        "acoustic_pct": 0.0
+      }
+    }
+  }
+}

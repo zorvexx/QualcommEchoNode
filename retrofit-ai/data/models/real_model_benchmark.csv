@@ -1,0 +1,5 @@
+Model,Precision,Recall,F1_Score,FPR,FNR,PR_AUC,ROC_AUC,Inference_ms,Model_Size_KB,Uno_Q_Feasibility
+IsolationForest,0.0,0.0,0.0,0.0,0.0,0.5,0.5,23.553,306.29,FEASIBLE
+RobustMahalanobis,0.0,0.0,0.0,1.0,0.0,0.5,0.5,0.036,7.63,YES (Highly Recommended)
+OneClassSVM,0.0,0.0,0.0,0.1,0.0,0.5,0.5,0.432,3.05,YES (Highly Recommended)
+Autoencoder,0.0,0.0,0.0,0.0,0.0,0.5,0.5,0.723,8.85,YES (Highly Recommended)

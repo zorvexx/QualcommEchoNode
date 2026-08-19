@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetroFit — Live Edge AI Machine Behavioral Intelligence</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Paho MQTT JavaScript Client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            950: '#060911',
+                            900: '#0b1120',
+                            800: '#111c35',
+                            700: '#1e2d4d',
+                            600: '#33476e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-dark-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+    <!-- TOP HEADER -->
+    <header class="border-b border-dark-700 bg-dark-900/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="activity" class="w-6 h-6 text-dark-950 font-extrabold"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-xl font-bold tracking-tight text-white">RetroFit</h1>
+                        <span class="px-2 py-0.5 text-xs font-semibold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">5 Hz Live Uno Q</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Autonomous Edge AI Machine Behavioral Fingerprinting</p>
+                </div>
+            </div>
+
+            <!-- CONTROLS & STATUS -->
+            <div class="flex items-center space-x-3">
+                <!-- Machine Selector -->
+                <div class="flex items-center space-x-2 bg-dark-800 px-3 py-1.5 rounded-lg border border-dark-700">
+                    <i data-lucide="cpu" class="w-4 h-4 text-emerald-400"></i>
+                    <select id="machineSelect" class="bg-transparent text-sm font-semibold text-slate-200 outline-none cursor-pointer">
+                        <option value="laptop_01" selected class="bg-dark-900">Machine: laptop_01</option>
+                        <option value="motor_pump_02" class="bg-dark-900">Machine: motor_pump_02</option>
+                        <option value="cnc_spindle_03" class="bg-dark-900">Machine: cnc_spindle_03</option>
+                    </select>
+                </div>
+
+                <!-- Twilio Badge -->
+                <div class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-400 text-xs font-medium">
+                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                    <span>Twilio: <strong class="text-white">+91 84017 82327</strong></span>
+                </div>
+
+                <!-- MQTT Badge -->
+                <div id="mqttBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="mqttStatusText">Connected to EMQX</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- ROW 1: TOP KPI TILES -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+
+            <!-- 1. Behavioral Similarity Score -->
+            <div class="bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold tracking-wider text-slate-400 uppercase">Behavioral Similarity</span>
+                    <i data-lucide="fingerprint" class="w-5 h-5 text-emerald-400"></i>
+                </div>
+                <div class="my-3 flex items-baseline justify-between">
+                    <span id="similarityVal" class="text-4xl font-black text-emerald-400 tracking-tight transition-all">100.0%</span>
+                    <span id="similarityTag" class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">MATCH</span>
+                </div>
+                <div class="w-full bg-dark-800 h-2.5 rounded-full overflow-hidden">
+                    <div id="similarityBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- 2. Machine Condition Status -->
+            <div class="bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold tracking-wider text-slate-400 uppercase">Condition Status</span>
+                    <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+                </div>
+                <div class="my-2">
+                    <div id="statusBadge" class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/40">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="statusText">HEALTHY</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1.5" id="statusDesc">Machine running within normal baseline</p>
+                </div>
+                <div class="text-xs text-slate-400 flex items-center justify-between border-t border-dark-800 pt-2">
+                    <span>Score: <span id="scoreVal" class="text-white font-mono font-bold">0.02</span></span>
+                    <span>Threshold: <span class="text-slate-300 font-mono">1.00</span></span>
+                </div>
+            </div>
+
+            <!-- 3. Dynamic Vibration & Motion -->
+            <div class="bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold tracking-wider text-slate-400 uppercase">Dynamic Motion</span>
+                    <i data-lucide="activity" class="w-5 h-5 text-sky-400"></i>
+                </div>
+                <div class="my-2">
+                    <div class="flex items-baseline space-x-2">
+                        <span id="accMagVal" class="text-3xl font-black text-sky-400 font-mono">0.83</span>
+                        <span class="text-xs font-bold text-slate-400">g-force</span>
+                    </div>
+                    <div class="text-xs font-mono text-slate-400 mt-1 flex space-x-2">
+                        <span>X: <strong id="axVal" class="text-slate-200">0.02</strong></span>
+                        <span>Y: <strong id="ayVal" class="text-slate-200">0.01</strong></span>
+                        <span>Z: <strong id="azVal" class="text-slate-200">0.83</strong></span>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 flex items-center justify-between border-t border-dark-800 pt-2">
+                    <span>Gyro Velocity:</span>
+                    <span id="gyroVal" class="text-sky-300 font-mono font-bold">0.2 °/s</span>
+                </div>
+            </div>
+
+            <!-- 4. Thermal & Acoustics -->
+            <div class="bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold tracking-wider text-slate-400 uppercase">Thermal & Sound</span>
+                    <i data-lucide="thermometer" class="w-5 h-5 text-amber-400"></i>
+                </div>
+                <div class="my-2 space-y-1">
+                    <div class="flex justify-between items-baseline">
+                        <span class="text-xs text-slate-400">Surface Temp:</span>
+                        <span id="tempObjVal" class="text-xl font-black text-amber-400 font-mono">25.5 °C</span>
+                    </div>
+                    <div class="flex justify-between items-baseline">
+                        <span class="text-xs text-slate-400">Thermal Delta (ΔT):</span>
+                        <span id="tempDeltaVal" class="text-xs font-bold text-amber-300 font-mono">+0.5 °C</span>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 flex items-center justify-between border-t border-dark-800 pt-2">
+                    <span>Acoustic Peak:</span>
+                    <span id="soundVoltsVal" class="text-purple-300 font-mono font-bold">0.02 V</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ROW 2: LIVE ZERO-LAG CHARTS & MULTIMODAL ROOT-CAUSE BREAKDOWN -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Chart 1: Real-Time High-Speed 5Hz Telemetry (2 Cols) -->
+            <div class="lg:col-span-2 bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i>
+                            <span>Real-Time Condition & Motion Telemetry</span>
+                        </h2>
+                        <p class="text-xs text-slate-400">5 Hz Live Multi-Rate Stream from Arduino Uno Q (0ms Visual Lag)</p>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded bg-dark-800 text-emerald-400 border border-dark-700 font-mono font-bold">● Live Stream</span>
+                </div>
+                <div class="h-64 relative">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Multimodal Root-Cause Attribution (1 Col) -->
+            <div class="bg-dark-900 rounded-2xl p-5 border border-dark-700 shadow-xl flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                            <i data-lucide="pie-chart" class="w-4 h-4 text-purple-400"></i>
+                            <span>Root-Cause Attribution</span>
+                        </h2>
+                        <p class="text-xs text-slate-400">Modal Feature Deviation Contribution</p>
+                    </div>
+                </div>
+
+                <div class="h-40 relative my-1 flex items-center justify-center">
+                    <canvas id="modalityChart"></canvas>
+                </div>
+
+                <!-- Modality Percentages Grid -->
+                <div class="grid grid-cols-3 gap-2 text-center text-xs pt-3 border-t border-dark-800">
+                    <div class="bg-dark-800/80 p-2 rounded-lg border border-sky-500/20">
+                        <span class="text-slate-400 block text-[11px]">Vibration</span>
+                        <span id="vibPctVal" class="font-black text-sky-400 font-mono">33.3%</span>
+                    </div>
+                    <div class="bg-dark-800/80 p-2 rounded-lg border border-purple-500/20">
+                        <span class="text-slate-400 block text-[11px]">Acoustic</span>
+                        <span id="acPctVal" class="font-black text-purple-400 font-mono">33.3%</span>
+                    </div>
+                    <div class="bg-dark-800/80 p-2 rounded-lg border border-amber-500/20">
+                        <span class="text-slate-400 block text-[11px]">Thermal</span>
+                        <span id="thPctVal" class="font-black text-amber-400 font-mono">33.4%</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ROW 3: TWILIO ALERT DISPATCH & TELEMETRY STREAM LOG TABLE -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Twilio Alert Dispatch Log -->
+            <div class="bg-dark-900 rounded-2xl border border-dark-700 shadow-xl p-5 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-3 border-b border-dark-800 pb-2">
+                    <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="bell-ring" class="w-4 h-4 text-sky-400"></i>
+                        <span>Twilio SMS & Alert Dispatch</span>
+                    </h2>
+                    <span class="text-[11px] font-mono text-sky-400">Target: +91 84017 82327</span>
+                </div>
+                <div id="twilioAlertBox" class="bg-dark-800/60 p-3 rounded-xl border border-dark-700 text-xs font-mono space-y-1.5 flex-1 overflow-y-auto max-h-48">
+                    <div class="text-slate-400 flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span>Twilio Target: +91 84017 82327 (60s cooldown)</span>
+                    </div>
+                    <div class="text-slate-500 text-[11px]">Standing by for machine health alerts...</div>
+                </div>
+            </div>
+
+            <!-- Edge Telemetry Log Stream Table (2 Cols) -->
+            <div class="lg:col-span-2 bg-dark-900 rounded-2xl border border-dark-700 shadow-xl overflow-hidden">
+                <div class="p-4 border-b border-dark-800 flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Live Telemetry Stream Packets</span>
+                    </h2>
+                    <span class="text-xs font-mono text-slate-400">Topic: <strong class="text-emerald-400" id="activeTopicText">retrofit/telemetry/laptop_01</strong></span>
+                </div>
+                <div class="overflow-x-auto max-h-52 overflow-y-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-dark-800 text-slate-400 uppercase tracking-wider sticky top-0">
+                            <tr>
+                                <th class="py-2.5 px-3">Time</th>
+                                <th class="py-2.5 px-3">Similarity</th>
+                                <th class="py-2.5 px-3">Accel (g)</th>
+                                <th class="py-2.5 px-3">Gyro (°/s)</th>
+                                <th class="py-2.5 px-3">Temp (°C)</th>
+                                <th class="py-2.5 px-3">Status</th>
+                                <th class="py-2.5 px-3">Primary Cause</th>
+                            </tr>
+                        </thead>
+                        <tbody id="telemetryTableBody" class="divide-y divide-dark-800 font-mono text-slate-300">
+                            <!-- Injected live -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- JAVASCRIPT: HIGH SPEED ZERO-LAG RENDERER -->
+    <script>
+        lucide.createIcons();
+
+        const MQTT_BROKER = "broker.emqx.io";
+        const MQTT_PORT = 8084;
+        const MQTT_PATH = "/mqtt";
+        let activeMachine = "laptop_01";
+        let client = null;
+
+        const maxPoints = 35;
+        const timeLabels = Array(maxPoints).fill('');
+        const simData = Array(maxPoints).fill(100.0);
+        const accData = Array(maxPoints).fill(0.83);
+        const gyroData = Array(maxPoints).fill(0.2);
+
+        const ctxTelemetry = document.getElementById('telemetryChart').getContext('2d');
+        const telemetryChart = new Chart(ctxTelemetry, {
+            type: 'line',
+            data: {
+                labels: timeLabels,
+                datasets: [
+                    {
+                        label: 'Similarity %',
+                        data: simData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        borderWidth: 2.5,
+                        tension: 0.2,
+                        yAxisID: 'y',
+                        fill: true,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Accel Vector (g)',
+                        data: accData,
+                        borderColor: '#38bdf8',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        yAxisID: 'y1',
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Gyro Speed (°/s)',
+                        data: gyroData,
+                        borderColor: '#f59e0b',
+                        borderWidth: 1.5,
+                        borderDash: [3, 3],
+                        tension: 0.2,
+                        yAxisID: 'y1',
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { grid: { color: '#1e2d4d' }, ticks: { display: false } },
+                    y: {
+                        position: 'left',
+                        min: 0,
+                        max: 100,
+                        grid: { color: '#1e2d4d' },
+                        ticks: { color: '#10b981', font: { size: 10 } }
+                    },
+                    y1: {
+                        position: 'right',
+                        min: 0,
+                        max: 3.5,
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#38bdf8', font: { size: 10 } }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } }
+                }
+            }
+        });
+
+        const ctxModality = document.getElementById('modalityChart').getContext('2d');
+        const modalityChart = new Chart(ctxModality, {
+            type: 'doughnut',
+            data: {
+                labels: ['Vibration', 'Acoustic', 'Thermal'],
+                datasets: [{
+                    data: [33.3, 33.3, 33.4],
+                    backgroundColor: ['#38bdf8', '#a855f7', '#f59e0b'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                cutout: '72%',
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        let currentPortIndex = 0;
+        const connectionConfigs = [
+            { port: 8084, useSSL: true, path: "/mqtt" },
+            { port: 8083, useSSL: false, path: "/mqtt" },
+            { port: 8084, useSSL: true, path: "/mqtt" }
+        ];
+
+        function connectMQTT() {
+            const config = connectionConfigs[currentPortIndex % connectionConfigs.length];
+            const clientId = "retrofit_ui_" + Math.random().toString(16).substr(2, 8);
+            
+            try {
+                if (client && client.isConnected()) {
+                    client.disconnect();
+                }
+            } catch(e) {}
+
+            console.log(`Connecting to ${MQTT_BROKER}:${config.port} (SSL: ${config.useSSL})...`);
+            client = new Paho.MQTT.Client(MQTT_BROKER, Number(config.port), config.path, clientId);
+
+            client.onConnectionLost = (resp) => {
+                console.warn("Connection lost:", resp);
+                document.getElementById('mqttBadge').className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 text-xs font-medium";
+                document.getElementById('mqttBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span><span>Reconnecting...</span>';
+                currentPortIndex++;
+                setTimeout(connectMQTT, 1500);
+            };
+
+            client.onMessageArrived = (msg) => {
+                try {
+                    const data = JSON.parse(msg.payloadString);
+                    updateDashboard(data);
+                } catch (e) {}
+            };
+
+            client.connect({
+                useSSL: config.useSSL,
+                timeout: 3,
+                onSuccess: () => {
+                    console.log(`Connected to EMQX broker on port ${config.port}!`);
+                    document.getElementById('mqttBadge').className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium";
+                    document.getElementById('mqttBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected to EMQX</span>';
+                    const topic = `retrofit/telemetry/${activeMachine}`;
+                    client.subscribe(topic);
+                    document.getElementById('activeTopicText').innerText = topic;
+                },
+                onFailure: (err) => {
+                    console.warn(`Connection failed on port ${config.port}:`, err);
+                    document.getElementById('mqttBadge').className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs font-medium";
+                    document.getElementById('mqttBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span><span>Trying port fallback...</span>';
+                    currentPortIndex++;
+                    setTimeout(connectMQTT, 1000);
+                }
+            });
+        }
+
+        function updateDashboard(data) {
+            const sim = data.similarity_score !== undefined ? data.similarity_score : 100.0;
+            const status = data.status || "HEALTHY";
+            const score = data.anomaly_score !== undefined ? data.anomaly_score : 0.02;
+            const s = data.sensors || {};
+
+            const ax = s.ax !== undefined ? s.ax : 0.0;
+            const ay = s.ay !== undefined ? s.ay : 0.0;
+            const az = s.az !== undefined ? s.az : 0.83;
+            // Always read live dynamic acceleration from s.acc_vector_g or data.vibration_rms
+            const accMag = s.acc_vector_g !== undefined ? s.acc_vector_g : (data.vibration_rms !== undefined ? data.vibration_rms : 0.83);
+            const gyro = s.gx !== undefined ? Math.abs(s.gx) + Math.abs(s.gy) + Math.abs(s.gz) : (s.gyro_mag !== undefined ? s.gyro_mag : 0.2);
+            const tempObj = s.temp_object_c !== undefined ? s.temp_object_c : (data.temperature_c !== undefined ? data.temperature_c : 25.5);
+            const tempDelta = s.temp_delta_c !== undefined ? (s.temp_delta_c > 0 ? `+${s.temp_delta_c}` : `${s.temp_delta_c}`) : "+0.5";
+            const soundVolts = s.sound_volts !== undefined ? `${s.sound_volts} V` : "0.02 V";
+
+            // 1. Update Big Values
+            document.getElementById('similarityVal').innerText = `${sim}%`;
+            document.getElementById('similarityBar').style.width = `${sim}%`;
+            document.getElementById('scoreVal').innerText = score;
+            document.getElementById('accMagVal').innerText = accMag;
+            document.getElementById('axVal').innerText = ax;
+            document.getElementById('ayVal').innerText = ay;
+            document.getElementById('azVal').innerText = az;
+            document.getElementById('gyroVal').innerText = `${typeof gyro === 'number' ? gyro.toFixed(1) : gyro} °/s`;
+            document.getElementById('tempObjVal').innerText = `${tempObj} °C`;
+            document.getElementById('tempDeltaVal').innerText = `${tempDelta} °C`;
+            document.getElementById('soundVoltsVal').innerText = soundVolts;
+
+            // 2. Update Status Badges & Colors
+            const statusBadge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            const statusDesc = document.getElementById('statusDesc');
+            const simTag = document.getElementById('similarityTag');
+
+            if (status === "HEALTHY") {
+                statusBadge.className = "inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/40";
+                statusText.innerText = "HEALTHY";
+                statusDesc.innerText = "Machine running within normal baseline";
+                simTag.className = "text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                simTag.innerText = "MATCH";
+                document.getElementById('similarityVal').className = "text-4xl font-black text-emerald-400 tracking-tight transition-all";
+            } else if (status === "WARNING") {
+                statusBadge.className = "inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-sm font-black bg-amber-500/10 text-amber-400 border border-amber-500/40";
+                statusText.innerText = "WARNING";
+                statusDesc.innerText = "Behavioral deviation detected!";
+                simTag.className = "text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                simTag.innerText = "DRIFT";
+                document.getElementById('similarityVal').className = "text-4xl font-black text-amber-400 tracking-tight transition-all";
+            } else {
+                statusBadge.className = "inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-sm font-black bg-red-500/10 text-red-400 border border-red-500/40";
+                statusText.innerText = "CRITICAL ANOMALY";
+                statusDesc.innerText = "Immediate machine attention required!";
+                simTag.className = "text-xs font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30";
+                simTag.innerText = "ALERT";
+                document.getElementById('similarityVal').className = "text-4xl font-black text-red-400 tracking-tight transition-all";
+                
+                const twBox = document.getElementById('twilioAlertBox');
+                const alertItem = document.createElement('div');
+                alertItem.className = "p-2 rounded bg-red-500/10 border border-red-500/30 text-red-300 text-[11px]";
+                alertItem.innerHTML = `🚨 <strong>Twilio Alert -> +91 84017 82327</strong><br>Cause: ${data.top_cause || 'Vibration'} | Sim: ${sim}% | ${new Date().toLocaleTimeString()}`;
+                twBox.insertBefore(alertItem, twBox.firstChild);
+            }
+
+            // 3. Update Chart INSTANTLY
+            timeLabels.push(''); timeLabels.shift();
+            simData.push(sim); simData.shift();
+            accData.push(typeof accMag === 'number' ? accMag : parseFloat(accMag)); accData.shift();
+            gyroData.push(typeof gyro === 'number' ? gyro : parseFloat(gyro)); gyroData.shift();
+            telemetryChart.update('none');
+
+            // 4. Update Modality Donut
+            if (data.modality_breakdown) {
+                const vp = data.modality_breakdown.vibration_pct || 33.3;
+                const ap = data.modality_breakdown.acoustic_pct || 33.3;
+                const tp = data.modality_breakdown.thermal_pct || 33.4;
+                modalityChart.data.datasets[0].data = [vp, ap, tp];
+                modalityChart.update('none');
+
+                document.getElementById('vibPctVal').innerText = `${vp}%`;
+                document.getElementById('acPctVal').innerText = `${ap}%`;
+                document.getElementById('thPctVal').innerText = `${tp}%`;
+            }
+
+            // 5. Append to Table Log
+            const tbody = document.getElementById('telemetryTableBody');
+            const row = document.createElement('tr');
+            row.className = "hover:bg-dark-800 transition-colors";
+            row.innerHTML = `
+                <td class="py-2 px-3 text-slate-400">${new Date().toLocaleTimeString()}</td>
+                <td class="py-2 px-3 font-bold ${sim > 80 ? 'text-emerald-400' : 'text-amber-400'}">${sim}%</td>
+                <td class="py-2 px-3 text-sky-400 font-bold">${accMag} g</td>
+                <td class="py-2 px-3 text-amber-300">${typeof gyro === 'number' ? gyro.toFixed(1) : gyro} °/s</td>
+                <td class="py-2 px-3 text-orange-400">${tempObj} °C</td>
+                <td class="py-2 px-3 font-bold ${status === 'HEALTHY' ? 'text-emerald-400' : (status === 'WARNING' ? 'text-amber-400' : 'text-red-400')}">${status}</td>
+                <td class="py-2 px-3 text-slate-300">${data.top_cause || 'Normal'}</td>
+            `;
+            tbody.insertBefore(row, tbody.firstChild);
+            if (tbody.children.length > 25) tbody.removeChild(tbody.lastChild);
+        }
+
+        document.getElementById('machineSelect').addEventListener('change', (e) => {
+            activeMachine = e.target.value;
+            if (client && client.isConnected()) {
+                const topic = `retrofit/telemetry/${activeMachine}`;
+                client.subscribe(topic);
+                document.getElementById('activeTopicText').innerText = topic;
+            }
+        });
+
+        window.addEventListener('load', connectMQTT);
+    </script>
+</body>
+</html>

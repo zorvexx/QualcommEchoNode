@@ -1,0 +1,15 @@
+{
+  "machine_id": "TEST_MACHINE_99",
+  "machine_name": "Test Motor",
+  "machine_type": "Spindle",
+  "application": "General",
+  "location": "Bench A",
+  "operator_phone": "+15550199",
+  "alert_policy": {
+    "critical_confirmation_count": 3,
+    "min_confidence": 70.0,
+    "cooldown_period_sec": 300
+  },
+  "lifecycle_state": "MONITORING",
+  "created_at": ""
+}

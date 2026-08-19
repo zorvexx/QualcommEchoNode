@@ -1,0 +1,78 @@
+{
+  "duration_sec": 137.2,
+  "sample_count": 9840,
+  "is_monotonic": true,
+  "dt_mean": 13.94,
+  "dt_median": 5.0,
+  "dt_min": 1.0,
+  "dt_max": 190.0,
+  "eff_fs": 71.71,
+  "gaps_gt_10": 1281,
+  "gaps_gt_20": 1112,
+  "gaps_gt_50": 1034,
+  "gaps_gt_100": 84,
+  "total_missing": 0,
+  "stable_sec": 109.77,
+  "range_summary": {
+    "ir_ambient_c": {
+      "min": 25.73,
+      "max": 26.39,
+      "mean": 26.03,
+      "std": 0.18
+    },
+    "ir_object_c": {
+      "min": 26.03,
+      "max": 26.83,
+      "mean": 26.47,
+      "std": 0.18
+    },
+    "sound_peak": {
+      "min": 0.0,
+      "max": 12239.0,
+      "mean": 7173.58,
+      "std": 3345.6
+    },
+    "sound_volts": {
+      "min": 0.0,
+      "max": 2.46,
+      "mean": 1.44,
+      "std": 0.67
+    },
+    "ax": {
+      "min": -3000.0,
+      "max": 8160.0,
+      "mean": 1069.27,
+      "std": 162.36
+    },
+    "ay": {
+      "min": -2852.0,
+      "max": 5552.0,
+      "mean": -437.5,
+      "std": 165.46
+    },
+    "az": {
+      "min": -32768.0,
+      "max": 2704.0,
+      "mean": -13543.7,
+      "std": 518.94
+    },
+    "gx": {
+      "min": -3622.0,
+      "max": 3161.0,
+      "mean": 101.05,
+      "std": 124.75
+    },
+    "gy": {
+      "min": -7216.0,
+      "max": 3085.0,
+      "mean": 335.1,
+      "std": 145.18
+    },
+    "gz": {
+      "min": -4077.0,
+      "max": 8830.0,
+      "mean": 118.29,
+      "std": 393.77
+    }
+  }
+}

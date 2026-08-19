@@ -1,0 +1,15 @@
+{
+  "last_call_time": 1787028596.7196765,
+  "events": [
+    {
+      "timestamp": 1787028596.7196765,
+      "drift": 45.0,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Test Unit, ID TEST_PERSIST_01, located at Lab. Behavioral drift is 45.0. Primary contributing signals: vibration_energy, temperature_rise. Please inspect the machine immediately."
+      }
+    }
+  ]
+}

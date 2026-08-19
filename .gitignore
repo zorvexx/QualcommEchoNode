@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+dist/
+*.egg-info/
+
+# Virtual Environments
+venv/
+ENV/
+.env
+
+# Large archives
+*.zip
+*.tar.gz
+*.tmp
+
+# App / IDE Cache
+.cache/
+.vscode/
+.idea/
+
+# Large media & datasets
+*.mp4
+*.mov
+*.avi
+*.csv
+web/Lab-1/

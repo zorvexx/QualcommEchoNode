@@ -1,0 +1,55 @@
+{
+  "last_call_time": 1787028579.5828772,
+  "events": [
+    {
+      "timestamp": 1786992263.348086,
+      "drift": 44.4,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Simulated Machinery Node, ID DEV_01, located at Edge Bench 1. Behavioral drift is 44.4. Primary contributing signals: acc_mag_wavelet_band_1_energy, acc_y_min. Please inspect the machine immediately."
+      }
+    },
+    {
+      "timestamp": 1786992721.9643943,
+      "drift": 44.4,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Simulated Machinery Node, ID DEV_01, located at Edge Bench 1. Behavioral drift is 44.4. Primary contributing signals: acc_mag_wavelet_band_1_energy, acc_y_min. Please inspect the machine immediately."
+      }
+    },
+    {
+      "timestamp": 1787027268.1048748,
+      "drift": 44.4,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Simulated Machinery Node, ID DEV_01, located at Edge Bench 1. Behavioral drift is 44.4. Primary contributing signals: acc_mag_wavelet_band_1_energy, acc_y_min. Please inspect the machine immediately."
+      }
+    },
+    {
+      "timestamp": 1787027826.4411163,
+      "drift": 44.4,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Simulated Machinery Node, ID DEV_01, located at Edge Bench 1. Behavioral drift is 44.4. Primary contributing signals: acc_mag_wavelet_band_1_energy, acc_y_min. Please inspect the machine immediately."
+      }
+    },
+    {
+      "timestamp": 1787028579.5828772,
+      "drift": 44.4,
+      "res": {
+        "status": "SUCCESS",
+        "mode": "MOCK",
+        "to": "+15550199",
+        "message": "Alert. RetroFit Critical Behavioral Deviation detected for machine Simulated Machinery Node, ID DEV_01, located at Edge Bench 1. Behavioral drift is 44.4. Primary contributing signals: acc_mag_wavelet_band_1_energy, acc_y_min. Please inspect the machine immediately."
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+sampling:
+  accel_fs: 1000
+  gyro_fs: 500
+  audio_fs: 16000
+  temp_fs: 10
+  mag_fs: 50
+
+window:
+  duration_seconds: 2.048
+  overlap: 0.5
+
+features:
+  enable_wavelets: true
+  enable_mfcc: true
+  enable_magnetometer: true
+
+selection:
+  top_n_features: 30
+
+clustering:
+  min_clusters: 2
+  max_clusters: 5
+
+anomaly:
+  percentile_warning: 95
+  percentile_critical: 99
+  persistence_n: 4
+  persistence_m: 6
+
+paths:
+  raw_data: "data/raw/demo_machine.csv"
+  processed_data: "data/processed/clean_data.csv"
+  features_csv: "data/features/features.csv"
+  feature_importance_csv: "data/features/feature_importance.csv"
+  models_dir: "data/models"
+  reports_dir: "data/reports"
+  memory_dir: "data/memory"
+  edge_dir: "edge"

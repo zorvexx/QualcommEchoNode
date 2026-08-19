@@ -1,0 +1,16 @@
+{
+  "model_version": "v1.0-LEGACY-PRE_RETRAINING",
+  "status": "PRE_RETRAINING_LEGACY",
+  "retraining_required": true,
+  "invalid_features": [
+    "audio_spectral_centroid"
+  ],
+  "reason": "audio_spectral_centroid is physically invalid for MAX9814 scalar amplitude inputs.",
+  "future_replacement_feature": "audio_noise_floor",
+  "bare_metal_dsp_requirements": {
+    "acc_mag_wavelet_band_1_energy": "DWT_DB4",
+    "gyro_mag_harmonic_ratio": "FFT_WINDOWED"
+  },
+  "primary_model_algorithm": "IsolationForest",
+  "date_updated": "2026-08-18"
+}

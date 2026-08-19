@@ -1,0 +1,20 @@
+{
+  "machine_id": "laptop_01",
+  "session_id": "idle_01",
+  "session_name": "laptop_01_idle_01_20260815_100559",
+  "magnetometer": false,
+  "imu_target_hz": 200,
+  "imu_actual_hz": 71.71,
+  "imu_sample_count": 9840,
+  "imu_duplicate_timestamps": 0,
+  "imu_invalid_rows": 0,
+  "audio_target_hz": 8000,
+  "audio_actual_hz": 260.75,
+  "audio_sample_count": 35712,
+  "audio_duplicate_timestamps": 0,
+  "audio_invalid_rows": 0,
+  "temperature_target_hz": 2,
+  "temperature_actual_hz": 2.0,
+  "temperature_sample_count": 274,
+  "temperature_invalid_rows": 0
+}

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RetroFit Real Model Selection Benchmark</title>
+    <style>
+        body { font-family: sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px; }
+        h1 { color: #3b82f6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #334155; padding: 10px; text-align: left; }
+        th { background-color: #1e293b; color: #94a3b8; }
+        tr:nth-child(even) { background-color: #1e293b; }
+    </style>
+</head>
+<body>
+    <h1>RetroFit Real Data Model Benchmark Report</h1>
+    <p>Evaluated on real held-out session dataset (<code>mlx90614_dataset_converted.csv</code>) using strict leak-free temporal split.</p>
+    <table border="1" class="dataframe table">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Model</th>
+      <th>Precision</th>
+      <th>Recall</th>
+      <th>F1_Score</th>
+      <th>FPR</th>
+      <th>FNR</th>
+      <th>PR_AUC</th>
+      <th>ROC_AUC</th>
+      <th>Inference_ms</th>
+      <th>Model_Size_KB</th>
+      <th>Uno_Q_Feasibility</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>IsolationForest</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.5</td>
+      <td>0.5</td>
+      <td>23.553</td>
+      <td>306.29</td>
+      <td>FEASIBLE</td>
+    </tr>
+    <tr>
+      <td>RobustMahalanobis</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>0.0</td>
+      <td>0.5</td>
+      <td>0.5</td>
+      <td>0.036</td>
+      <td>7.63</td>
+      <td>YES (Highly Recommended)</td>
+    </tr>
+    <tr>
+      <td>OneClassSVM</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.0</td>
+      <td>0.5</td>
+      <td>0.5</td>
+      <td>0.432</td>
+      <td>3.05</td>
+      <td>YES (Highly Recommended)</td>
+    </tr>
+    <tr>
+      <td>Autoencoder</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.5</td>
+      <td>0.5</td>
+      <td>0.723</td>
+      <td>8.85</td>
+      <td>YES (Highly Recommended)</td>
+    </tr>
+  </tbody>
+</table>
+</body>
+</html>
