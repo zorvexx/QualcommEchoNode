@@ -405,7 +405,26 @@
             client.onMessageArrived = (msg) => {
                 try {
                     const data = JSON.parse(msg.payloadString);
-                    updateDashboard(data);
+                    if (data.machine_id) {
+                        const sel = document.getElementById('machineSelect');
+                        let found = false;
+                        for (let opt of sel.options) {
+                            if (opt.value === data.machine_id) { found = true; break; }
+                        }
+                        if (!found) {
+                            const newOpt = document.createElement('option');
+                            newOpt.value = data.machine_id;
+                            newOpt.text = `Machine: ${data.machine_id}`;
+                            newOpt.className = "bg-dark-900";
+                            sel.add(newOpt);
+                            sel.value = data.machine_id;
+                            activeMachine = data.machine_id;
+                        }
+                    }
+                    if (!activeMachine || activeMachine === "all" || msg.destinationName.endsWith(activeMachine) || (data.machine_id && data.machine_id === activeMachine)) {
+                        updateDashboard(data);
+                        document.getElementById('activeTopicText').innerText = msg.destinationName;
+                    }
                 } catch (e) {}
             };
 
@@ -416,9 +435,9 @@
                     console.log(`Connected to EMQX broker on port ${config.port}!`);
                     document.getElementById('mqttBadge').className = "flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium";
                     document.getElementById('mqttBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected to EMQX</span>';
-                    const topic = `retrofit/telemetry/${activeMachine}`;
+                    const topic = `retrofit/telemetry/#`;
                     client.subscribe(topic);
-                    document.getElementById('activeTopicText').innerText = topic;
+                    document.getElementById('activeTopicText').innerText = `retrofit/telemetry/${activeMachine}`;
                 },
                 onFailure: (err) => {
                     console.warn(`Connection failed on port ${config.port}:`, err);
