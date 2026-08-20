@@ -175,6 +175,7 @@ void flushImu() {
   bool ok = false;
   Bridge.call("imu_batch", txImuBuf).result(ok);
   imuBufCount = 0;
+  if (!ok) delay(20);
 }
 
 void flushAudio() {
@@ -187,6 +188,7 @@ void flushAudio() {
   bool ok = false;
   Bridge.call("audio_batch", txAudioBuf).result(ok);
   audioBufCount = 0;
+  if (!ok) delay(20);
 }
 
 void serviceImu(uint32_t ts) {
