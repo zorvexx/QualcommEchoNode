@@ -285,17 +285,17 @@ def background_inference_loop():
                 # Normal operational fan hum deadband (1.95V to 2.95V)
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Warm Laptop Chassis: +3.0C to +8.5C)
-            if curr_temp_delta < 2.0:
-                # Cold chassis / Laptop shut down / Placed on Table (loss of CPU heat gradient)
-                temp_dev = 0.45 + ((2.0 - curr_temp_delta) / 2.0) * 0.55
+            # D. Thermal Gradient Distance (Warm Operating Laptop Chassis: +4.0C to +8.5C)
+            if curr_temp_delta < 4.0:
+                # Cold chassis / Laptop shut down / Placed on Table (loss of active CPU heat)
+                temp_dev = 0.50 + ((4.0 - curr_temp_delta) / 3.5) * 0.50
             elif curr_temp_delta > 10.0:
                 temp_dev = (curr_temp_delta - 10.0) / 4.0 # Overheating
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score (Balanced across Acoustic, Vibration, Thermal, and Gyro)
-            raw_anomaly_score = float(0.30 * vib_dev + 0.25 * gyro_dev + 0.30 * sound_dev + 0.35 * temp_dev)
+            # Composite Anomaly Score (Balanced across Modalities)
+            raw_anomaly_score = float(0.30 * vib_dev + 0.25 * gyro_dev + 0.15 * sound_dev + 0.45 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
             smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
@@ -304,8 +304,8 @@ def background_inference_loop():
             
             # High-Precision Exponential Decay Curve:
             # - On Running Laptop (score ~0.00 - 0.03):      Similarity ~96 - 99% (HEALTHY MATCH)
-            # - Fan Halted / Closed (score ~0.35 - 0.55):     Similarity ~35 - 50% (WARNING: Fan Halted)
-            # - Placed on Cold Table (score ~0.65 - 0.90):   Similarity ~18 - 28% (CRITICAL: Displaced)
+            # - Laptop Shut Down (score ~0.35 - 0.60):       Similarity ~35 - 50% (WARNING: Chassis Cooling)
+            # - Placed on Cold Table (score ~0.70 - 0.95):   Similarity ~15 - 25% (CRITICAL: Displaced)
             # - Shaken / Tampered (score > 1.10):            Similarity < 8%      (CRITICAL_ANOMALY + SMS)
             similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
@@ -327,8 +327,8 @@ def background_inference_loop():
                 
             if curr_vib_std > 0.022 or gyro_dev > 0.3:
                 top_cause = f"Excess Vibration Motion ({vib_pct}%)"
-            elif temp_dev > 0.25 and curr_temp_delta < 2.0:
-                top_cause = f"Thermal Gradient (Chassis Cool / Displaced {th_pct}%)"
+            elif temp_dev > 0.20 and curr_temp_delta < 4.0:
+                top_cause = f"Thermal Gradient (Chassis Cool / Fan Halted {th_pct}%)"
             elif sound_dev > 0.25 and curr_sound_volts < 1.95:
                 top_cause = f"Acoustic Floor (Fan Halted / Silent {ac_pct}%)"
             elif vib_dev > 0.15 and curr_vib_std < 0.001:
