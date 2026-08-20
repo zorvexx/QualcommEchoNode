@@ -49,7 +49,21 @@ if os.path.exists(CONFIG_PATH):
 
 MODE = config.get("mode", "MONITORING").upper()
 MACHINE_ID = config.get("machine_id", "laptop_01")
+SESSION_ID = config.get("session_id", "idle_01")
 TWILIO_CFG = config["twilio"]
+
+# Setup CSV writers for COLLECTION mode
+imu_csv_file = None
+audio_csv_file = None
+temp_csv_file = None
+
+if MODE == "COLLECTION":
+    SESSION_DIR = os.path.join(DATA_DIR, f"{MACHINE_ID}_{SESSION_ID}")
+    os.makedirs(SESSION_DIR, exist_ok=True)
+    imu_csv_file = open(os.path.join(SESSION_DIR, "imu.csv"), "a", encoding="utf-8")
+    audio_csv_file = open(os.path.join(SESSION_DIR, "audio.csv"), "a", encoding="utf-8")
+    temp_csv_file = open(os.path.join(SESSION_DIR, "temperature.csv"), "a", encoding="utf-8")
+    print(f"[COLLECTION MODE ACTIVE] Recording raw sensor data to: {SESSION_DIR}", flush=True)
 
 # ----------------- TWILIO ALERT HANDLER -----------------
 last_twilio_alert_time = 0
@@ -310,6 +324,13 @@ worker.start()
 # ----------------- LIGHTWEIGHT 0.1ms RPC CALLBACKS -----------------
 def audio_batch(chunk: str):
     global latest_audio_peak
+    if audio_csv_file and not audio_csv_file.closed:
+        try:
+            audio_csv_file.write(chunk if chunk.endswith("\n") else chunk + "\n")
+            audio_csv_file.flush()
+        except Exception:
+            pass
+            
     max_val, min_val = 0, 16383
     has_val = False
     for line in chunk.strip().split("\n"):
@@ -329,6 +350,13 @@ def audio_batch(chunk: str):
 
 def imu_batch(chunk: str):
     global latest_ax, latest_ay, latest_az, latest_gx, latest_gy, latest_gz
+    if imu_csv_file and not imu_csv_file.closed:
+        try:
+            imu_csv_file.write(chunk if chunk.endswith("\n") else chunk + "\n")
+            imu_csv_file.flush()
+        except Exception:
+            pass
+            
     lines = chunk.strip().split("\n")
     if not lines:
         return "OK"
@@ -369,6 +397,13 @@ def imu_batch(chunk: str):
 
 def temp_row(line: str):
     global latest_temp_obj, latest_temp_amb
+    if temp_csv_file and not temp_csv_file.closed:
+        try:
+            temp_csv_file.write(line if line.endswith("\n") else line + "\n")
+            temp_csv_file.flush()
+        except Exception:
+            pass
+            
     parts = line.split(",")
     if len(parts) == 3:
         try:
