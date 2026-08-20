@@ -201,6 +201,8 @@ latest_gx = 0.0
 latest_gy = 0.0
 latest_gz = 0.0
 
+latest_audio_energy = 0.22
+
 # Calibrated Baselines & Deadbands for MAX9814 & MPU6050
 VIB_NOISE_DEADBAND_G = 0.06      # Motion threshold (normal idle std is ~0.01-0.03g)
 GYRO_NOISE_DEADBAND_DPS = 18.0   # Rotational threshold (idle gyro is ~1-5 dps)
@@ -224,6 +226,7 @@ def background_inference_loop():
                     curr_gx, curr_gy, curr_gz = latest_gx, latest_gy, latest_gz
                     curr_temp_obj, curr_temp_amb = latest_temp_obj, latest_temp_amb
                     curr_sound_peak = latest_audio_peak
+                    curr_sound_energy = latest_audio_energy
                     
                     ax_arr = np.array([r['ax'] for r in win], dtype=float) / 16384.0
                     ay_arr = np.array([r['ay'] for r in win], dtype=float) / 16384.0
@@ -241,9 +244,10 @@ def background_inference_loop():
                     curr_ax, curr_ay, curr_az = latest_ax, latest_ay, latest_az
                     curr_gx, curr_gy, curr_gz = latest_gx, latest_gy, latest_gz
                     curr_temp_obj, curr_temp_amb = latest_temp_obj, latest_temp_amb
-                    curr_vib_std = 0.01
+                    curr_vib_std = 0.003
                     curr_gyro_mean = 1.0
                     curr_sound_peak = 1000
+                    curr_sound_energy = 0.22
 
             instant_acc_g = round(float(np.sqrt(curr_ax**2 + curr_ay**2 + curr_az**2)), 2)
             if instant_acc_g == 0.0:
@@ -252,50 +256,47 @@ def background_inference_loop():
             curr_sound_volts = round((curr_sound_peak * 3.3) / 16383.0, 3)
             curr_temp_delta = round(curr_temp_obj - curr_temp_amb, 2)
             
-            # 1. PHYSICAL CALIBRATION TO TRAINED MACHINE DATASET (laptop_new)
-            # Physical Baseline Profile from Dataset:
-            # - Idle Vibration: ~0.002g - 0.005g (Resting on laptop chassis)
-            # - Thermal Gradient: ~+4.5C to +6.0C (Warm CPU chassis heat)
-            # - Acoustic Swing: ~0.30V to 2.80V (Quiet room / Laptop fan)
-            # - Gyroscope: <= 2.2 deg/s (Resting stability)
+            # 1. DYNAMIC MULTI-MODAL SENSING ENGINE (ACOUSTIC-DOMINATED FAN HUM DETECTION)
+            # Physical Profile:
+            # - Running Fan Hum Energy: ~0.120V - 0.450V AC (Dominant indicator of active fan)
+            # - Fan Off / Halted: Sound AC energy drops < 0.090V AC
+            # - Warm Chassis: accepts broad +1.0C to +9.0C gradient with ZERO penalty
+            # - Idle Vibration: ~0.0015g - 0.018g
             
             # A. Vibration Distance (Trained Idle Fan Band: 0.0015g to 0.018g)
             if curr_vib_std < 0.0010:
-                # Completely disconnected / sensor error
                 vib_dev = 0.50
             elif curr_vib_std > 0.022:
-                # Excess vibration / External disturbance / Shaking
                 vib_dev = (curr_vib_std - 0.022) / 0.025
             else:
-                # Normal operating fan deadband (0.0015g to 0.022g)
                 vib_dev = 0.0
                 
             # B. Gyroscope Stability (Resting Baseline: <= 2.2 deg/s)
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
             gyro_dev = (gyro_excess / 6.0)
             
-            # C. Acoustic Distance (Operational Fan Hum Band: 2.10V to 2.85V)
-            if curr_sound_volts < 1.95:
-                # Fan stopped / Acoustic silence (vents shut down, laptop sleeping / closed)
-                sound_dev = 0.55 + ((1.95 - curr_sound_volts) / 1.5) * 0.45
-            elif curr_sound_volts > 2.95:
-                # Loud noise / friction / tapping
-                sound_dev = (curr_sound_volts - 2.95) / 0.30
+            # C. Acoustic Distance (Primary Active Fan-Hum Energy Detector)
+            if curr_sound_energy < 0.090:
+                # Fan is OFF / Halted / Silence
+                sound_dev = 0.65 + ((0.090 - curr_sound_energy) / 0.080) * 0.35
+            elif curr_sound_energy > 0.500:
+                # Loud noise / tapping / friction
+                sound_dev = (curr_sound_energy - 0.500) / 0.30
             else:
-                # Normal operational fan hum deadband (1.95V to 2.95V)
+                # Active operational fan hum deadband (0.090V to 0.500V)
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Warm Operating Laptop Chassis: +4.0C to +8.5C)
-            if curr_temp_delta < 4.0:
-                # Cold chassis / Laptop shut down / Placed on Table (loss of active CPU heat)
-                temp_dev = 0.50 + ((4.0 - curr_temp_delta) / 3.5) * 0.50
-            elif curr_temp_delta > 10.0:
-                temp_dev = (curr_temp_delta - 10.0) / 4.0 # Overheating
+            # D. Thermal Gradient Distance (Low weight when chassis is warm)
+            if curr_temp_delta < 0.8:
+                # Cold table / completely displaced
+                temp_dev = 0.50 + ((0.8 - curr_temp_delta) / 1.0) * 0.50
+            elif curr_temp_delta > 12.0:
+                temp_dev = (curr_temp_delta - 12.0) / 4.0 # Overheating
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score (Balanced across Modalities)
-            raw_anomaly_score = float(0.30 * vib_dev + 0.25 * gyro_dev + 0.15 * sound_dev + 0.45 * temp_dev)
+            # Composite Anomaly Score: Acoustic carries 50% dominant weight for instant fan detection!
+            raw_anomaly_score = float(0.20 * vib_dev + 0.20 * gyro_dev + 0.50 * sound_dev + 0.10 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
             smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
@@ -303,10 +304,10 @@ def background_inference_loop():
             thresh = 0.40
             
             # High-Precision Exponential Decay Curve:
-            # - On Running Laptop (score ~0.00 - 0.03):      Similarity ~96 - 99% (HEALTHY MATCH)
-            # - Laptop Shut Down (score ~0.35 - 0.60):       Similarity ~35 - 50% (WARNING: Chassis Cooling)
-            # - Placed on Cold Table (score ~0.70 - 0.95):   Similarity ~15 - 25% (CRITICAL: Displaced)
-            # - Shaken / Tampered (score > 1.10):            Similarity < 8%      (CRITICAL_ANOMALY + SMS)
+            # - Fan Running on Laptop (score ~0.00 - 0.03):   Similarity ~96 - 99% (HEALTHY MATCH)
+            # - Fan Halted / Off (score ~0.35 - 0.55):        Similarity ~35 - 50% (WARNING: Fan Halted)
+            # - Placed on Cold Table (score ~0.70 - 0.95):    Similarity ~15 - 25% (CRITICAL: Displaced)
+            # - Shaken / Tampered (score > 1.10):             Similarity < 8%      (CRITICAL_ANOMALY + SMS)
             similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
             
@@ -327,16 +328,16 @@ def background_inference_loop():
                 
             if curr_vib_std > 0.022 or gyro_dev > 0.3:
                 top_cause = f"Excess Vibration Motion ({vib_pct}%)"
-            elif temp_dev > 0.20 and curr_temp_delta < 4.0:
-                top_cause = f"Thermal Gradient (Chassis Cool / Fan Halted {th_pct}%)"
-            elif sound_dev > 0.25 and curr_sound_volts < 1.95:
+            elif sound_dev > 0.20 and curr_sound_energy < 0.090:
                 top_cause = f"Acoustic Floor (Fan Halted / Silent {ac_pct}%)"
+            elif temp_dev > 0.20 and curr_temp_delta < 0.8:
+                top_cause = f"Thermal Gradient (Chassis Cool / Displaced {th_pct}%)"
             elif vib_dev > 0.15 and curr_vib_std < 0.001:
                 top_cause = f"Vibration Floor (Sensor Fault {vib_pct}%)"
             elif ac_pct >= vib_pct and ac_pct >= th_pct:
                 top_cause = f"Acoustic Deviation ({ac_pct}%)"
             else:
-                top_cause = "Operational Baseline Match" if status == "HEALTHY" else f"Behavioral Drift ({th_pct}%)"
+                top_cause = "Operational Baseline Match" if status == "HEALTHY" else f"Behavioral Drift ({ac_pct}%)"
                 
             telemetry = {
                 "timestamp_ms": int(time.time() * 1000),
@@ -392,7 +393,7 @@ worker.start()
 
 # ----------------- LIGHTWEIGHT 0.1ms RPC CALLBACKS -----------------
 def audio_batch(chunk: str):
-    global latest_audio_peak
+    global latest_audio_peak, latest_audio_energy
     if audio_csv_file and not audio_csv_file.closed:
         try:
             audio_csv_file.write(chunk if chunk.endswith("\n") else chunk + "\n")
@@ -400,21 +401,19 @@ def audio_batch(chunk: str):
         except Exception:
             pass
             
-    max_val, min_val = 0, 16383
-    has_val = False
+    vals = []
     for line in chunk.strip().split("\n"):
         if not line: continue
         parts = line.split(",")
         if len(parts) == 2:
             try:
-                v = int(parts[1])
-                if v > max_val: max_val = v
-                if v < min_val: min_val = v
-                has_val = True
+                vals.append(int(parts[1]))
             except ValueError:
                 pass
-    if has_val and max_val >= min_val:
-        latest_audio_peak = max_val - min_val
+    if len(vals) >= 2:
+        ac_std = float(np.std(vals))
+        latest_audio_energy = round((ac_std * 3.3) / 16384.0, 3)
+        latest_audio_peak = int(max(vals) - min(vals))
     return "OK"
 
 def imu_batch(chunk: str):
