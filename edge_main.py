@@ -60,9 +60,34 @@ temp_csv_file = None
 if MODE == "COLLECTION":
     SESSION_DIR = os.path.join(DATA_DIR, f"{MACHINE_ID}_{SESSION_ID}")
     os.makedirs(SESSION_DIR, exist_ok=True)
-    imu_csv_file = open(os.path.join(SESSION_DIR, "imu.csv"), "a", encoding="utf-8")
-    audio_csv_file = open(os.path.join(SESSION_DIR, "audio.csv"), "a", encoding="utf-8")
-    temp_csv_file = open(os.path.join(SESSION_DIR, "temperature.csv"), "a", encoding="utf-8")
+    
+    # Initialize metadata.json
+    meta_path = os.path.join(SESSION_DIR, "metadata.json")
+    if not os.path.exists(meta_path):
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump({"machine_id": MACHINE_ID, "session_id": SESSION_ID, "start_time_iso": datetime.datetime.now().isoformat()}, f, indent=2)
+            
+    imu_path = os.path.join(SESSION_DIR, "imu.csv")
+    write_imu_hdr = not os.path.exists(imu_path) or os.path.getsize(imu_path) == 0
+    imu_csv_file = open(imu_path, "a", encoding="utf-8")
+    if write_imu_hdr:
+        imu_csv_file.write("timestamp_us,ax,ay,az,gx,gy,gz\n")
+        imu_csv_file.flush()
+
+    audio_path = os.path.join(SESSION_DIR, "audio.csv")
+    write_aud_hdr = not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0
+    audio_csv_file = open(audio_path, "a", encoding="utf-8")
+    if write_aud_hdr:
+        audio_csv_file.write("timestamp_us,val\n")
+        audio_csv_file.flush()
+
+    temp_path = os.path.join(SESSION_DIR, "temperature.csv")
+    write_tmp_hdr = not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0
+    temp_csv_file = open(temp_path, "a", encoding="utf-8")
+    if write_tmp_hdr:
+        temp_csv_file.write("timestamp_ms,temp_object_c,temp_ambient_c\n")
+        temp_csv_file.flush()
+
     print(f"[COLLECTION MODE ACTIVE] Recording raw sensor data to: {SESSION_DIR}", flush=True)
 
 # ----------------- TWILIO ALERT HANDLER -----------------
