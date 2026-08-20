@@ -257,21 +257,21 @@ void setup() {
 void loop() {
   uint32_t now = micros();
 
-  // 1. Audio check
+  // 1. Audio check (500 Hz)
   if ((int32_t)(now - nextAudioTime) >= 0) {
     serviceAudio(now);
-    nextAudioTime += AUDIO_INTERVAL_US;
+    nextAudioTime = now + AUDIO_INTERVAL_US;
   }
 
-  // 2. IMU check
+  // 2. IMU check (50 Hz)
   if ((int32_t)(now - nextImuTime) >= 0) {
     serviceImu(now);
-    nextImuTime += IMU_INTERVAL_US;
+    nextImuTime = now + IMU_INTERVAL_US;
   }
 
-  // 3. MLX temperature check
+  // 3. MLX temperature check (2 Hz)
   if ((int32_t)(now - nextMlxTime) >= 0) {
     serviceMlx();
-    nextMlxTime += MLX_INTERVAL_US;
+    nextMlxTime = now + MLX_INTERVAL_US;
   }
 }
