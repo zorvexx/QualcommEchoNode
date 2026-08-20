@@ -109,9 +109,9 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
         
         sftp.close()
 
-        # 4. Restart app to apply new mode
-        print(" -> Restarting app user:retrofit on Uno Q...")
-        _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit; sleep 1; arduino-app-cli app start user:retrofit")
+        # 4. Restart router and app to apply new mode cleanly
+        print(" -> Synchronizing Arduino Router and restarting app on Uno Q...")
+        _, out, _ = ssh.exec_command("sudo systemctl restart arduino-router; sleep 1; arduino-app-cli app restart user:retrofit")
         out.read()
 
         ssh.close()
