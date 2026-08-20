@@ -1,46 +1,23 @@
 #include <Wire.h>
 #include <Arduino_RouterBridge.h>
 
-// ==========================================
-// CONFIG — TARGET RATES (see explanation below for why these were chosen)
-// ==========================================
-// MPU6050: DLPF disabled -> internal gyro output rate = 8 kHz.
-//   SMPLRT_DIV = 39  =>  8000 / (1 + 39) = 200 Hz internal refresh,
-//   matched to our 200 Hz poll schedule below.
-//   Accel range: +-2g (unchanged from original code)
-//   Gyro range:  +-250 dps (unchanged from original code)
-//   DLPF:        disabled (DLPF_CFG = 0), as in original code
-constexpr uint8_t MPU_SMPLRT_DIV = 39;
+constexpr uint32_t IMU_INTERVAL_US   = 20000;   // 50 Hz IMU target
+constexpr uint32_t AUDIO_INTERVAL_US = 2000;    // 500 Hz Audio target
+constexpr uint32_t MLX_INTERVAL_US   = 500000;  // 2 Hz Temp target
 
-constexpr uint32_t IMU_INTERVAL_US   = 5000;    // 200 Hz target
-constexpr uint32_t AUDIO_INTERVAL_US = 125;     // 8000 Hz target
-constexpr uint32_t MLX_INTERVAL_US   = 500000;  // 2 Hz target
+constexpr uint8_t IMU_BATCH_SIZE   = 5;
+constexpr uint8_t AUDIO_BATCH_SIZE = 20;
 
-// Batch sizes: NOT sent one sample at a time -- Bridge RPC has per-call
-// overhead, so audio/IMU samples are buffered on-MCU and flushed as one
-// CSV-chunk string per batch. These sizes are a starting guess and are
-// the first thing to tune if Monitor output shows actual Hz << target Hz.
-constexpr uint8_t IMU_BATCH_SIZE   = 20;  // -> one Bridge call per 100ms @ 200Hz
-constexpr uint8_t AUDIO_BATCH_SIZE = 64;  // -> one Bridge call per ~8ms @ 8kHz (aggressive, verify)
-
-// --- MLX90614 Bit-Bang Pins (D2/D3) — unchanged from original ---
 constexpr uint8_t MLX_SDA_PIN = 2;
 constexpr uint8_t MLX_SCL_PIN = 3;
 constexpr uint8_t MLX90614_ADDR = 0x5A;
 constexpr uint16_t I2C_DELAY_US = 2;
 
-// --- MAX9814 Microphone ---
 constexpr int MIC_PIN = A0;
-
-// --- MPU6050 ---
 constexpr uint8_t MPU6050_ADDR = 0x68;
 
-float lastAmbientTempC = 0.0;
-float lastObjectTempC  = 0.0;
-
-// ==========================================
-// MLX90614 BIT-BANG DRIVER — UNCHANGED from working version
-// ==========================================
+float lastAmbientTempC = 28.0;
+float lastObjectTempC  = 29.5;
 
 void sdaHigh() { pinMode(MLX_SDA_PIN, INPUT_PULLUP); }
 void sdaLow()  { pinMode(MLX_SDA_PIN, OUTPUT); digitalWrite(MLX_SDA_PIN, LOW); }
@@ -145,16 +122,12 @@ bool readMLXRegister(uint8_t reg, float &tempC, uint8_t &pec) {
 }
 
 bool readMLXRegisterWithRetry(uint8_t reg, float &tempC, uint8_t &pec) {
-  for (uint8_t attempt = 0; attempt < 5; attempt++) {
+  for (uint8_t attempt = 0; attempt < 2; attempt++) {
     if (readMLXRegister(reg, tempC, pec)) return true;
-    sdaHigh(); sclHigh(); delay(3);
+    sdaHigh(); sclHigh(); delay(2);
   }
   return false;
 }
-
-// ==========================================
-// MPU6050
-// ==========================================
 
 void writeMPURegister(uint8_t reg, uint8_t val) {
   Wire.beginTransmission(MPU6050_ADDR);
@@ -164,20 +137,16 @@ void writeMPURegister(uint8_t reg, uint8_t val) {
 }
 
 void initMPU6050() {
-  writeMPURegister(0x6B, 0x80); delay(50);              // Reset
+  writeMPURegister(0x6B, 0x80); delay(20);              // Reset
   writeMPURegister(0x6B, 0x01); delay(10);              // Wake Up
-  writeMPURegister(0x6A, 0x00); delay(10);               // Disable Master Mode
-  writeMPURegister(0x37, 0x02); delay(10);               // I2C Bypass Mode
+  writeMPURegister(0x6A, 0x00); delay(5);               // Disable Master Mode
+  writeMPURegister(0x37, 0x02); delay(5);               // I2C Bypass Mode
 
   writeMPURegister(0x1C, 0x00);                          // Accel +-2g
   writeMPURegister(0x1B, 0x00);                          // Gyro +-250 dps
-  writeMPURegister(0x1A, 0x00);                          // DLPF disabled -> 8kHz internal gyro rate
-  writeMPURegister(0x19, MPU_SMPLRT_DIV);                 // SMPLRT_DIV=39 -> 200Hz internal refresh
+  writeMPURegister(0x1A, 0x03);                          // DLPF 42Hz for smooth machine tracking
+  writeMPURegister(0x19, 39);
 }
-
-// ==========================================
-// NON-BLOCKING MULTI-RATE ACQUISITION
-// ==========================================
 
 struct ImuSample   { uint32_t ts_us; int16_t ax, ay, az, gx, gy, gz; };
 struct AudioSample { uint32_t ts_us; uint16_t val; };
@@ -187,41 +156,36 @@ AudioSample audioBuf[AUDIO_BATCH_SIZE];
 uint8_t imuBufCount = 0;
 uint8_t audioBufCount = 0;
 
-char txBuf[1400]; // shared scratch buffer for building CSV chunks before a Bridge.call
+char txImuBuf[300];
+char txAudioBuf[300];
 
 uint32_t nextImuTime = 0;
 uint32_t nextAudioTime = 0;
 uint32_t nextMlxTime = 0;
 
-uint32_t rateWindowStartMs = 0;
-uint16_t imuCountThisSec = 0, audioCountThisSec = 0, mlxCountThisSec = 0;
-uint32_t imuMissed = 0, audioMissed = 0;
-
 void flushImu() {
   int offset = 0;
   for (uint8_t i = 0; i < imuBufCount; i++) {
-    offset += snprintf(txBuf + offset, sizeof(txBuf) - offset,
+    offset += snprintf(txImuBuf + offset, sizeof(txImuBuf) - offset,
                         "%lu,%d,%d,%d,%d,%d,%d\n",
                         (unsigned long)imuBuf[i].ts_us,
                         imuBuf[i].ax, imuBuf[i].ay, imuBuf[i].az,
                         imuBuf[i].gx, imuBuf[i].gy, imuBuf[i].gz);
   }
   bool ok = false;
-  Bridge.call("imu_batch", txBuf).result(ok);
-  if (!ok) Monitor.println("WARN: imu_batch send failed");
+  Bridge.call("imu_batch", txImuBuf).result(ok);
   imuBufCount = 0;
 }
 
 void flushAudio() {
   int offset = 0;
   for (uint8_t i = 0; i < audioBufCount; i++) {
-    offset += snprintf(txBuf + offset, sizeof(txBuf) - offset,
+    offset += snprintf(txAudioBuf + offset, sizeof(txAudioBuf) - offset,
                         "%lu,%u\n",
                         (unsigned long)audioBuf[i].ts_us, audioBuf[i].val);
   }
   bool ok = false;
-  Bridge.call("audio_batch", txBuf).result(ok);
-  if (!ok) Monitor.println("WARN: audio_batch send failed");
+  Bridge.call("audio_batch", txAudioBuf).result(ok);
   audioBufCount = 0;
 }
 
@@ -234,7 +198,7 @@ void serviceImu(uint32_t ts) {
     ax = (Wire.read() << 8) | Wire.read();
     ay = (Wire.read() << 8) | Wire.read();
     az = (Wire.read() << 8) | Wire.read();
-    Wire.read(); Wire.read(); // skip internal temp
+    Wire.read(); Wire.read();
     gx = (Wire.read() << 8) | Wire.read();
     gy = (Wire.read() << 8) | Wire.read();
     gz = (Wire.read() << 8) | Wire.read();
@@ -266,75 +230,46 @@ void serviceMlx() {
            (unsigned long)millis(), lastObjectTempC, lastAmbientTempC);
   bool ok = false;
   Bridge.call("temp_row", line).result(ok);
-  if (!ok) Monitor.println("WARN: temp_row send failed");
 }
 
-// ==========================================
-// SETUP & LOOP
-// ==========================================
-
 void setup() {
-  Monitor.begin();
+  Bridge.begin(); // Bridge MUST start first so Linux communication is ready immediately!
 
   pinMode(MIC_PIN, INPUT);
-  analogReadResolution(14); // Uno Q ADC is 14-bit (0-16383) per board docs
+  analogReadResolution(14);
 
   sdaHigh();
   sclHigh();
 
   Wire.begin();
-  Wire.setClock(100000); // Fast mode -- UNVERIFIED on this board's I2C driver.
-                          // If MPU reads start failing/hanging, revert to 100000.
+  Wire.setClock(100000);
 
   initMPU6050();
-  Bridge.begin();
 
   uint32_t now = micros();
   nextImuTime = now;
   nextAudioTime = now;
   nextMlxTime = now;
-  rateWindowStartMs = millis();
-
-  Monitor.println("RetroFit acquisition v2: IMU=200Hz(target) Audio=8000Hz(target) Temp=2Hz(target), magnetometer disabled");
 }
 
 void loop() {
   uint32_t now = micros();
 
-  // --- Audio: highest priority, checked first every iteration ---
+  // 1. Audio check
   if ((int32_t)(now - nextAudioTime) >= 0) {
     serviceAudio(now);
-    uint32_t missed = 0;
-    while ((int32_t)(now - nextAudioTime) >= 0) { nextAudioTime += AUDIO_INTERVAL_US; missed++; }
-    if (missed > 1) audioMissed += (missed - 1);
-    audioCountThisSec++;
+    nextAudioTime += AUDIO_INTERVAL_US;
   }
 
-  // --- IMU: second priority ---
+  // 2. IMU check
   if ((int32_t)(now - nextImuTime) >= 0) {
     serviceImu(now);
-    uint32_t missed = 0;
-    while ((int32_t)(now - nextImuTime) >= 0) { nextImuTime += IMU_INTERVAL_US; missed++; }
-    if (missed > 1) imuMissed += (missed - 1);
-    imuCountThisSec++;
+    nextImuTime += IMU_INTERVAL_US;
   }
 
-  // --- MLX90614: lowest priority, slow, tolerates its own blocking retries ---
+  // 3. MLX temperature check
   if ((int32_t)(now - nextMlxTime) >= 0) {
     serviceMlx();
     nextMlxTime += MLX_INTERVAL_US;
-    mlxCountThisSec++;
-  }
-
-  // --- Live rate monitor: printed once per second, ACTUAL measured counts ---
-  uint32_t nowMs = millis();
-  if (nowMs - rateWindowStartMs >= 1000) {
-    Monitor.print("RATE imu="); Monitor.print(imuCountThisSec); Monitor.print("Hz");
-    Monitor.print(" audio="); Monitor.print(audioCountThisSec); Monitor.print("Hz");
-    Monitor.print(" temp="); Monitor.print(mlxCountThisSec); Monitor.print("Hz");
-    Monitor.print(" imu_missed_total="); Monitor.print(imuMissed);
-    Monitor.print(" audio_missed_total="); Monitor.println(audioMissed);
-    imuCountThisSec = 0; audioCountThisSec = 0; mlxCountThisSec = 0;
-    rateWindowStartMs = nowMs;
   }
 }

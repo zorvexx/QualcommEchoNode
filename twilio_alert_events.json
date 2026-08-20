@@ -1,0 +1,52 @@
+[
+  {
+    "timestamp": "2026-08-18T12:15:51.863363",
+    "target": "+918401782327",
+    "machine_id": "laptop_01",
+    "status": "CRITICAL_ANOMALY",
+    "similarity": 0.0,
+    "score": 2.524,
+    "cause": "Vibration Motion (71.7%)",
+    "message": "\ud83d\udea8 RETROFIT ALERT: Machine [laptop_01] detected CRITICAL_ANOMALY!\n\u2022 Similarity: 0.0%\n\u2022 Anomaly Score: 2.524\n\u2022 Cause: Vibration Motion (71.7%)\n\u2022 Time: 12:15:51"
+  },
+  {
+    "timestamp": "2026-08-18T12:18:17.415321",
+    "target": "+918401782327",
+    "machine_id": "laptop_01",
+    "status": "CRITICAL_ANOMALY",
+    "similarity": 23.1,
+    "score": 1.539,
+    "cause": "Acoustic Noise (51.4%)",
+    "message": "\ud83d\udea8 RETROFIT ALERT: Machine [laptop_01] detected CRITICAL_ANOMALY!\n\u2022 Similarity: 23.1%\n\u2022 Anomaly Score: 1.539\n\u2022 Cause: Acoustic Noise (51.4%)\n\u2022 Time: 12:18:17"
+  },
+  {
+    "timestamp": "2026-08-18T15:16:32.958970",
+    "target": "+918401782327",
+    "machine_id": "laptop_01",
+    "status": "CRITICAL_ANOMALY",
+    "similarity": 15.9,
+    "score": 1.682,
+    "cause": "Vibration Motion (71.5%)",
+    "message": "\ud83d\udea8 RETROFIT ALERT: Machine [laptop_01] detected CRITICAL_ANOMALY!\n\u2022 Similarity: 15.9%\n\u2022 Anomaly Score: 1.682\n\u2022 Cause: Vibration Motion (71.5%)\n\u2022 Time: 15:16:32"
+  },
+  {
+    "timestamp": "2026-08-18T15:17:47.479977",
+    "target": "+918401782327",
+    "machine_id": "laptop_01",
+    "status": "CRITICAL_ANOMALY",
+    "similarity": 20.7,
+    "score": 1.587,
+    "cause": "Vibration Motion (58.2%)",
+    "message": "\ud83d\udea8 RETROFIT ALERT: Machine [laptop_01] detected CRITICAL_ANOMALY!\n\u2022 Similarity: 20.7%\n\u2022 Anomaly Score: 1.587\n\u2022 Cause: Vibration Motion (58.2%)\n\u2022 Time: 15:17:47"
+  },
+  {
+    "timestamp": "2026-08-18T15:19:30.292854",
+    "target": "+918401782327",
+    "machine_id": "laptop_01",
+    "status": "CRITICAL_ANOMALY",
+    "similarity": 24.7,
+    "score": 1.507,
+    "cause": "Vibration Motion (58.0%)",
+    "message": "\ud83d\udea8 RETROFIT ALERT: Machine [laptop_01] detected CRITICAL_ANOMALY!\n\u2022 Similarity: 24.7%\n\u2022 Anomaly Score: 1.507\n\u2022 Cause: Vibration Motion (58.0%)\n\u2022 Time: 15:19:30"
+  }
+]

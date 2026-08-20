@@ -70,12 +70,18 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
 
         sftp = ssh.open_sftp()
         
-        # 1. Update main.py on the board
+        # 1. Update sketch.ino on the board
+        local_sketch = os.path.join(workspace, "sketch.ino")
+        if os.path.exists(local_sketch):
+            print(" -> Uploading latest STM32 firmware (sketch.ino) to Uno Q...")
+            sftp.put(local_sketch, "/home/arduino/ArduinoApps/retrofit/sketch/sketch.ino")
+
+        # 2. Update main.py on the board
         if os.path.exists(local_main_py):
             print(" -> Uploading latest dual-mode engine (edge_main.py) to Uno Q...")
             sftp.put(local_main_py, f"{REMOTE_APP_DIR}/main.py")
             
-        # 2. Upload Model Artifacts (if MONITORING mode)
+        # 3. Upload Model Artifacts (if MONITORING mode)
         if mode.upper() == "MONITORING" and os.path.exists(local_models_dir):
             remote_models = f"{REMOTE_APP_DIR}/models"
             try:
@@ -91,7 +97,7 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
                     sftp.put(local_file, f"{remote_models}/{mf}")
                     print(f"    - Uploaded {mf}")
                     
-        # 3. Update Remote config.json
+        # 4. Update Remote config.json
         remote_config = {
             "mode": mode.upper(),
             "machine_id": machine_id,
@@ -109,10 +115,12 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
         
         sftp.close()
 
-        # 4. Restart router and app to apply new mode cleanly
-        print(" -> Synchronizing Arduino Router and restarting app on Uno Q...")
-        _, out, _ = ssh.exec_command("sudo systemctl restart arduino-router; sleep 1; arduino-app-cli app restart user:retrofit")
+        # 5. Compile firmware, flash MCU, and start engine
+        print(" -> Compiling firmware and starting app on Uno Q (takes ~20s)...")
+        _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit; sleep 1; sudo systemctl restart arduino-router; sleep 1; arduino-app-cli app start user:retrofit")
         out.read()
+        import time
+        time.sleep(20)
 
         ssh.close()
         
