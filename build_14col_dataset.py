@@ -146,10 +146,17 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         session_path = sys.argv[1]
     else:
-        dirs = [d for d in glob.glob("*_*_*_*") if os.path.isdir(d)]
-        if not dirs:
-            print("No session directories found.")
+        # Find all session directories and sort by mtime, picking the latest with real data
+        all_dirs = [d for d in os.listdir('.') if os.path.isdir(d) and ('laptop_' in d or 'idle_' in d)]
+        valid_dirs = []
+        for d in all_dirs:
+            imu = os.path.join(d, 'imu.csv')
+            if os.path.exists(imu) and os.path.getsize(imu) > 100:
+                valid_dirs.append(d)
+        if not valid_dirs:
+            print("No populated session directories found.")
             sys.exit(1)
-        session_path = sorted(dirs)[-1]
+        valid_dirs.sort(key=lambda d: os.path.getmtime(d))
+        session_path = valid_dirs[-1]
         
     process_session(session_path)
