@@ -98,6 +98,15 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
                     print(f"    - Uploaded {mf}")
                     
         # 4. Update Remote config.json
+        twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+        twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        env_path = os.path.join(workspace, ".env")
+        if os.path.exists(env_path):
+            with open(env_path) as ef:
+                for line in ef:
+                    if "TWILIO_ACCOUNT_SID=" in line: twilio_sid = line.split("=", 1)[1].strip()
+                    elif "TWILIO_AUTH_TOKEN=" in line: twilio_token = line.split("=", 1)[1].strip()
+                    
         remote_config = {
             "mode": mode.upper(),
             "machine_id": machine_id,
@@ -106,12 +115,19 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
             "mqtt_broker": "broker.emqx.io",
             "mqtt_port": 1883,
             "mqtt_topic": f"retrofit/telemetry/{machine_id}",
-            "twilio_enabled": False
+            "twilio": {
+                "enabled": bool(twilio_sid and twilio_token and "YOUR" not in twilio_sid),
+                "account_sid": twilio_sid,
+                "auth_token": twilio_token,
+                "from_phone": os.getenv("TWILIO_FROM_PHONE", "+15708730348"),
+                "target_phone": os.getenv("TWILIO_TARGET_PHONE", "+918401782327"),
+                "cooldown_seconds": 60
+            }
         }
         
         with sftp.file(f"{REMOTE_APP_DIR}/config.json", "w") as f:
             f.write(json.dumps(remote_config, indent=2))
-        print(f" -> Updated {REMOTE_APP_DIR}/config.json to mode [{mode.upper()}]")
+        print(f" -> Updated {REMOTE_APP_DIR}/config.json to mode [{mode.upper()}] (Twilio: {'ACTIVE' if remote_config['twilio']['enabled'] else 'DISABLED'})")
         
         sftp.close()
 

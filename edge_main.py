@@ -229,48 +229,59 @@ def background_inference_loop():
             curr_sound_volts = round((curr_sound_peak * 3.3) / 16383.0, 3)
             curr_temp_delta = round(curr_temp_obj - curr_temp_amb, 2)
             
-            # 1. Behavioral Fingerprint Statistical Distance to Trained Idle Laptop Profile
-            # Target Idle Fingerprint: vib_std ~0.025g, temp_delta ~+1.8C, sound_volts ~0.45V, gyro ~2.5 dps
-            TARGET_VIB_STD = 0.025
-            TARGET_TEMP_DELTA = 1.80
-            TARGET_SOUND_VOLTS = 0.45
-            TARGET_GYRO_DPS = 2.5
+            # 1. High-Sensitivity Behavioral Fingerprint Distance to Trained Laptop Vents Profile (idle_06)
+            # Trained Baseline Profile:
+            # - Fan micro-vibration floor: ~0.008g (drops to <0.004g if vents off/table, spikes if shaken)
+            # - Thermal gradient: ~+2.70C (drops to <0.5C if vents off/table, rises under load)
+            # - Acoustic hum: ~0.70V (quiet laptop hum)
+            # - Gyro stability: ~2.0 deg/s
+            TARGET_VIB_STD = 0.008
+            TARGET_TEMP_DELTA = 2.70
+            TARGET_SOUND_VOLTS = 0.70
+            TARGET_GYRO_DPS = 2.0
             
-            # Vibration distance: penalize missing fan vibration (table) and excess vibration (shake)
+            # Vibration distance: highly sensitive to absent fan vibration AND excess vibration
             if curr_vib_std < TARGET_VIB_STD:
-                vib_dev = ((TARGET_VIB_STD - curr_vib_std) / 0.035) * 0.4 # Table penalty (~0.20)
+                # Absent fan penalty (vents shut down, laptop closed, or placed on table)
+                vib_dev = ((TARGET_VIB_STD - curr_vib_std) / 0.006) * 0.75 # Drops sharply
             else:
-                vib_dev = (curr_vib_std - TARGET_VIB_STD) / 0.080 # Excessive motion/shake penalty
+                # Excess vibration / motion penalty
+                vib_dev = (curr_vib_std - TARGET_VIB_STD) / 0.025
                 
             # Gyroscope distance (rotational movement)
-            gyro_excess = max(0.0, curr_gyro_mean - 10.0)
-            gyro_dev = gyro_excess / 35.0
+            gyro_excess = max(0.0, curr_gyro_mean - 6.0)
+            gyro_dev = gyro_excess / 15.0
             
-            # Acoustic distance: relative departure from idle hum
+            # Acoustic distance: sensitive to missing hum or loud noise
             sound_diff = abs(curr_sound_volts - TARGET_SOUND_VOLTS)
-            sound_dev = max(0.0, sound_diff - 0.40) / 0.80
+            sound_dev = max(0.0, sound_diff - 0.15) / 0.35
             
-            # Thermal distance: penalize missing laptop heat gradient (table) or overheating
-            if curr_temp_delta < 0.3:
-                temp_dev = ((TARGET_TEMP_DELTA - curr_temp_delta) / 2.0) * 0.45 # Table/Cool penalty (~0.40)
+            # Thermal distance: sensitive to loss of laptop heat gradient (vents stopped) or overheating
+            if curr_temp_delta < 1.2:
+                # Cold chassis / Vents stopped / Table penalty
+                temp_dev = ((TARGET_TEMP_DELTA - curr_temp_delta) / 2.0) * 0.85
             else:
-                temp_dev = max(0.0, (curr_temp_delta - TARGET_TEMP_DELTA) - 2.5) / 5.0
+                temp_dev = max(0.0, abs(curr_temp_delta - TARGET_TEMP_DELTA) - 1.2) / 3.0
                 
-            # Raw composite behavioral distance
+            # High-Precision Composite Anomaly Score
             raw_anomaly_score = float(0.40 * (vib_dev * 0.7 + gyro_dev * 0.3) + 0.25 * sound_dev + 0.35 * temp_dev)
             
             # 2. Smooth Persistence Filter (EMA)
-            smoothed_anomaly_score = 0.65 * smoothed_anomaly_score + 0.35 * raw_anomaly_score
+            smoothed_anomaly_score = 0.50 * smoothed_anomaly_score + 0.50 * raw_anomaly_score
             score = round(smoothed_anomaly_score, 3)
-            thresh = 1.0
+            thresh = 0.50
             
-            # Similarity curve: Idle laptop -> ~96-99%, Table -> ~68-76%, Shaking -> <35%
-            similarity = float(np.clip(100.0 * (1.0 - (score / 1.60)), 0.0, 100.0))
+            # High-Sensitivity Exponential Decay Curve:
+            # - Operational Match (Vents Running): Score ~0.02 -> Sim ~96-99%
+            # - Vents Off / Closed Laptop:         Score ~0.35 -> Sim ~45-55% (WARNING)
+            # - Table / Silent Laptop:             Score ~0.60 -> Sim ~25-35% (CRITICAL)
+            # - Shaken / Tampered:                 Score >1.00 -> Sim <10%    (ALERT + SMS)
+            similarity = float(np.clip(100.0 * np.exp(-2.2 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
             
-            if score > thresh * 1.1:
+            if score > thresh * 1.5:
                 status = "CRITICAL_ANOMALY"
-            elif score > thresh * 0.55:
+            elif score > thresh * 0.65:
                 status = "WARNING"
             else:
                 status = "HEALTHY"
