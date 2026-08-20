@@ -252,48 +252,47 @@ def background_inference_loop():
             curr_sound_volts = round((curr_sound_peak * 3.3) / 16383.0, 3)
             curr_temp_delta = round(curr_temp_obj - curr_temp_amb, 2)
             
-            # 1. OPTIMUM CALIBRATED BEHAVIORAL FINGERPRINT DISTANCE ENGINE
-            # - On Running Laptop Vents: Continuous fan micro-vibration, resting stability, warm chassis -> 96-99%
-            # - Laptop Shut Down / Fan Off: Immediate fan halt penalty                                   -> 35-48%
-            # - Hand Movement / Nudge: Gyro and dynamic motion immediately penalize                     -> 25-45%
-            # - On Cold Table / Displaced: No fan vibration, no thermal delta                           -> 15-28%
-            # - Vigorous Shake: High G-force & rotational spin                                          -> <10% (SMS)
+            # 1. PHYSICAL CALIBRATION TO TRAINED MACHINE DATASET (laptop_new)
+            # Physical Baseline Profile from Dataset:
+            # - Idle Vibration: ~0.002g - 0.005g (Resting on laptop chassis)
+            # - Thermal Gradient: ~+4.5C to +6.0C (Warm CPU chassis heat)
+            # - Acoustic Swing: ~0.30V to 2.80V (Quiet room / Laptop fan)
+            # - Gyroscope: <= 2.2 deg/s (Resting stability)
             
-            # A. Vibration Distance (Fan Micro-Vibration Baseline: 0.006g to 0.022g)
-            if curr_vib_std < 0.0055:
-                # Fan stopped / Laptop shut down / Table (absence of continuous mechanical fan rotation)
-                vib_dev = 0.50 + ((0.0055 - curr_vib_std) / 0.004) * 0.40
-            elif curr_vib_std > 0.024:
+            # A. Vibration Distance (Trained Idle Fan Band: 0.0015g to 0.018g)
+            if curr_vib_std < 0.0010:
+                # Completely disconnected / sensor error
+                vib_dev = 0.50
+            elif curr_vib_std > 0.022:
                 # Excess vibration / External disturbance / Shaking
-                vib_dev = (curr_vib_std - 0.024) / 0.025
+                vib_dev = (curr_vib_std - 0.022) / 0.025
             else:
-                # Normal operating fan deadband (0.0055g to 0.024g)
+                # Normal operating fan deadband (0.0015g to 0.022g)
                 vib_dev = 0.0
                 
             # B. Gyroscope Stability (Resting Baseline: <= 2.2 deg/s)
-            # Moving the board generates gyro > 3.0 deg/s and MUST penalize immediately
-            gyro_excess = max(0.0, curr_gyro_mean - 2.4)
+            gyro_excess = max(0.0, curr_gyro_mean - 2.2)
             gyro_dev = (gyro_excess / 6.0)
             
-            # C. Acoustic Distance (Operational Hum Deadband: 0.35V to 1.15V)
-            if curr_sound_volts < 0.28:
-                sound_dev = ((0.28 - curr_sound_volts) / 0.20) * 0.40 # Dead silent
-            elif curr_sound_volts > 1.25:
-                sound_dev = (curr_sound_volts - 1.25) / 0.60 # Loud noise / friction
+            # C. Acoustic Distance (Operational Range: 0.20V to 3.00V)
+            if curr_sound_volts < 0.15:
+                sound_dev = 0.35 # Dead silent
+            elif curr_sound_volts > 3.15:
+                sound_dev = (curr_sound_volts - 3.15) / 0.50 # Loud noise / friction
             else:
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Warm Laptop Chassis Deadband: +1.5C to +6.5C)
-            if curr_temp_delta < 1.1:
-                # Cold chassis / Vents stopped / Table (loss of laptop heat gradient)
-                temp_dev = 0.40 + ((1.1 - curr_temp_delta) / 1.5) * 0.50
-            elif curr_temp_delta > 8.0:
-                temp_dev = (curr_temp_delta - 8.0) / 3.5 # Overheating
+            # D. Thermal Gradient Distance (Warm Laptop Chassis: +3.0C to +8.5C)
+            if curr_temp_delta < 2.0:
+                # Cold chassis / Laptop shut down / Placed on Table (loss of CPU heat gradient)
+                temp_dev = 0.45 + ((2.0 - curr_temp_delta) / 2.0) * 0.55
+            elif curr_temp_delta > 10.0:
+                temp_dev = (curr_temp_delta - 10.0) / 4.0 # Overheating
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score (Vibration & Gyro are strongly coupled)
-            raw_anomaly_score = float(0.42 * vib_dev + 0.28 * gyro_dev + 0.12 * sound_dev + 0.28 * temp_dev)
+            # Composite Anomaly Score
+            raw_anomaly_score = float(0.35 * vib_dev + 0.30 * gyro_dev + 0.10 * sound_dev + 0.40 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
             smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
@@ -301,10 +300,9 @@ def background_inference_loop():
             thresh = 0.40
             
             # High-Precision Exponential Decay Curve:
-            # - On Running Laptop (score ~0.00 - 0.03):      Similarity ~96 - 99% (HEALTHY)
-            # - Vents Off / Shut Down (score ~0.25 - 0.45):   Similarity ~45 - 58% (WARNING: Fan Inactive)
-            # - Hand Movement / Nudge (score ~0.35 - 0.65):   Similarity ~30 - 48% (WARNING: Motion)
-            # - On Table / Cold (score ~0.65 - 0.90):         Similarity ~18 - 28% (CRITICAL: Displaced)
+            # - On Running Laptop (score ~0.00 - 0.03):      Similarity ~96 - 99% (HEALTHY MATCH)
+            # - Laptop Shut Down / Table (score ~0.45 - 0.80): Similarity ~25 - 45% (WARNING: Loss of Chassis Heat)
+            # - Hand Movement / Nudge (score ~0.35 - 0.60):   Similarity ~30 - 50% (WARNING: Dynamic Motion)
             # - Shaken / Tampered (score > 1.10):            Similarity < 8%      (CRITICAL_ANOMALY + SMS)
             similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
