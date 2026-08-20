@@ -276,14 +276,17 @@ def background_inference_loop():
             gyro_dev = (gyro_excess / 6.0)
             
             # C. Acoustic Distance (Primary Active Fan-Hum Energy Detector)
-            if curr_sound_energy < 0.090:
+            # - Measured Fan Hum Energy: ~0.850V - 1.350V AC (sound_energy_v)
+            # - Fan Off / Halted: Silence drops to < 0.500V AC
+            # - External Loud Noise: Spikes > 1.700V AC
+            if curr_sound_energy < 0.600:
                 # Fan is OFF / Halted / Silence
-                sound_dev = 0.65 + ((0.090 - curr_sound_energy) / 0.080) * 0.35
-            elif curr_sound_energy > 0.500:
-                # Loud noise / tapping / friction
-                sound_dev = (curr_sound_energy - 0.500) / 0.30
+                sound_dev = 0.65 + ((0.600 - curr_sound_energy) / 0.500) * 0.35
+            elif curr_sound_energy > 1.700:
+                # Loud external noise / tapping / friction
+                sound_dev = (curr_sound_energy - 1.700) / 0.40
             else:
-                # Active operational fan hum deadband (0.090V to 0.500V)
+                # Active operational fan hum deadband (0.600V to 1.700V AC)
                 sound_dev = 0.0
                 
             # D. Thermal Gradient Distance (Low weight when chassis is warm)
@@ -355,6 +358,7 @@ def background_inference_loop():
                     "acc_vector_g": instant_acc_g,
                     "vib_std_g": round(curr_vib_std, 3),
                     "sound_volts": curr_sound_volts,
+                    "sound_energy_v": curr_sound_energy,
                     "temp_object_c": round(curr_temp_obj, 1),
                     "temp_ambient_c": round(curr_temp_amb, 1),
                     "temp_delta_c": curr_temp_delta
