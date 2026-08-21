@@ -110,9 +110,31 @@ def process_session(session_dir, output_file=None):
             idx_end = bisect.bisect_right(audio_ts, t_end)
             
             if idx_end > idx_start:
-                samples = [audio_records[k][1] for k in range(idx_start, idx_end)]
-                sound_peak = max(samples) - min(samples)
-                sound_volts = round((sound_peak * 3.3) / 16383.0, 3) # 14-bit ADC
+                raw_chunk = [audio_records[k][1] for k in range(idx_start, idx_end)]
+                
+                # Robust Signal Filtering:
+                # 1. Median DC baseline estimation
+                sorted_chunk = sorted(raw_chunk)
+                dc_median = sorted_chunk[len(sorted_chunk) // 2]
+                ac_samples = [x - dc_median for x in raw_chunk]
+                
+                # 2. Outlier rejection: Eliminate single-sample transient spike glitches
+                mean_ac = sum(ac_samples) / len(ac_samples)
+                var_ac = sum((x - mean_ac)**2 for x in ac_samples) / len(ac_samples)
+                std_ac = var_ac**0.5
+                
+                # Clip 3-sigma noise spikes
+                if std_ac > 1.0:
+                    limit = 3.0 * std_ac
+                    ac_samples = [max(-limit, min(limit, x)) for x in ac_samples]
+                    
+                # 3. RMS energy & robust peak-to-peak (5th to 95th percentile)
+                ac_rms = (sum(x**2 for x in ac_samples) / len(ac_samples))**0.5
+                sorted_ac = sorted(ac_samples)
+                p5_idx = int(0.05 * len(sorted_ac))
+                p95_idx = min(len(sorted_ac) - 1, int(0.95 * len(sorted_ac)))
+                sound_peak = int(sorted_ac[p95_idx] - sorted_ac[p5_idx])
+                sound_volts = round((ac_rms * 3.3) / 16384.0, 4)
             else:
                 sound_peak = 0
                 sound_volts = 0.0

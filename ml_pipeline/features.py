@@ -106,6 +106,14 @@ def extract_dataset_features(csv_path, window_size=400, step_size=200, output_cs
     """
     df = pd.read_csv(csv_path)
     n_samples = len(df)
+    
+    # Advanced Acoustic Signal Processing Filter:
+    # 5-sample rolling median (rejects transient noise clicks) + EMA smoothing (preserves continuous operating sound)
+    if 'sound_volts' in df.columns:
+        df['sound_volts'] = df['sound_volts'].rolling(5, min_periods=1, center=True).median().ewm(span=3).mean()
+    if 'sound_peak' in df.columns:
+        df['sound_peak'] = df['sound_peak'].rolling(5, min_periods=1, center=True).median().ewm(span=3).mean()
+        
     print(f"Extracting features from {csv_path} ({n_samples} rows)...")
     
     rows = []
