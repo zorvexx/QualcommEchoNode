@@ -256,59 +256,65 @@ def background_inference_loop():
             curr_sound_volts = round((curr_sound_peak * 3.3) / 16383.0, 3)
             curr_temp_delta = round(curr_temp_obj - curr_temp_amb, 2)
             
-            # 1. DYNAMIC MULTI-MODAL SENSING ENGINE (ACOUSTIC-DOMINATED FAN HUM DETECTION)
+            # 1. DYNAMIC MULTI-MODAL SENSING ENGINE (PC CPU STRESSER & FAN HUM DETECTION)
             # Physical Profile:
-            # - Running Fan Hum Energy: ~0.120V - 0.450V AC (Dominant indicator of active fan)
-            # - Fan Off / Halted: Sound AC energy drops < 0.090V AC
-            # - Warm Chassis: accepts broad +1.0C to +9.0C gradient with ZERO penalty
-            # - Idle Vibration: ~0.0015g - 0.018g
+            # - Running CPU Fan Hum: ~0.060V - 0.450V AC (mean ~0.23V on active CPU cooler)
+            # - PC Shutdown / Fan Stopped: Sound AC energy drops < 0.060V AC (silence)
+            # - Active CPU Heat Gradient: +0.7°C to +12.0°C with ZERO penalty
+            # - Running CPU Vibration: ~0.0012g - 0.025g std
             
-            # A. Vibration Distance (Trained Idle Fan Band: 0.0015g to 0.018g)
+            # A. Vibration Distance (Active CPU Stresser: 0.0012g to 0.025g)
             if curr_vib_std < 0.0010:
-                vib_dev = 0.50
-            elif curr_vib_std > 0.022:
-                vib_dev = (curr_vib_std - 0.022) / 0.025
+                # Motor / fan ceased spinning completely (PC stopped)
+                vib_dev = 0.60
+            elif curr_vib_std > 0.025:
+                # Abnormal excessive vibration or mechanical shock
+                vib_dev = min(1.5, (curr_vib_std - 0.025) / 0.025)
             else:
+                # Normal subtle CPU vibration
                 vib_dev = 0.0
                 
             # B. Gyroscope Stability (Resting Baseline: <= 2.2 deg/s)
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
-            gyro_dev = (gyro_excess / 6.0)
+            gyro_dev = min(1.5, gyro_excess / 6.0)
             
-            # C. Acoustic Distance: Quiet baseline -> 96-99% Healthy, Loud noise/shouting -> Anomaly
-            if curr_sound_energy > 0.450:
-                # External acoustic disturbance / loud noise / shouting
-                sound_dev = (curr_sound_energy - 0.450) / 0.35
+            # C. Acoustic Distance: Fan Hum (0.060V-0.450V) -> Healthy, Fan Off (<0.060V) -> Anomaly, Shout (>0.450V) -> Disturbance
+            if curr_sound_energy < 0.060:
+                # Fan stopped / silent PC halt
+                sound_dev = 0.65 + ((0.060 - max(0.0, curr_sound_energy)) / 0.060) * 0.35
+            elif curr_sound_energy > 0.450:
+                # Loud noise / speaking loudly / environmental spike
+                sound_dev = min(1.5, (curr_sound_energy - 0.450) / 0.35)
             else:
-                # Normal quiet machine operation (0.005V to 0.450V AC)
+                # Normal running fan hum
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Warm Operating Chassis: +0.8C to +12.0C)
-            if curr_temp_delta < 0.8:
-                # Cold table / completely displaced
-                temp_dev = 0.50 + ((0.8 - curr_temp_delta) / 1.0) * 0.50
+            # D. Thermal Gradient Distance (Warm Operating Chassis: +0.7C to +12.0C)
+            if curr_temp_delta < 0.70:
+                # PC cooled down after shutdown or sensor removed
+                temp_dev = 0.55 + ((0.70 - curr_temp_delta) / 1.0) * 0.45
             elif curr_temp_delta > 12.0:
-                temp_dev = (curr_temp_delta - 12.0) / 4.0 # Overheating
+                # Overheating
+                temp_dev = min(1.5, (curr_temp_delta - 12.0) / 4.0)
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score
-            raw_anomaly_score = float(0.35 * vib_dev + 0.25 * gyro_dev + 0.30 * sound_dev + 0.30 * temp_dev)
+            # Composite Anomaly Score (35% Vib, 15% Gyro, 30% Sound, 20% Temp)
+            raw_anomaly_score = float(0.35 * vib_dev + 0.15 * gyro_dev + 0.30 * sound_dev + 0.20 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
             smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
             score = round(smoothed_anomaly_score, 3)
-            thresh = 0.40
+            thresh = 0.38
             
-            # High-Precision Exponential Decay Curve:
-            # - Fan Running on Laptop (score ~0.00 - 0.03):   Similarity ~96 - 99% (HEALTHY MATCH)
-            # - Fan Halted / Off (score ~0.35 - 0.55):        Similarity ~35 - 50% (WARNING: Fan Halted)
-            # - Placed on Cold Table (score ~0.70 - 0.95):    Similarity ~15 - 25% (CRITICAL: Displaced)
-            # - Shaken / Tampered (score > 1.10):             Similarity < 8%      (CRITICAL_ANOMALY + SMS)
+            # High-Precision Similarity Mapping:
+            # - CPU Running under Stress (score ~0.00 - 0.03): Similarity ~96 - 99% (HEALTHY)
+            # - PC Shutdown / Fan Ceased (score ~0.55 - 0.85): Similarity ~18 - 33% (CRITICAL_ANOMALY)
+            # - Loud External Shout (score ~0.40 - 0.60):     Similarity ~30 - 45% (WARNING / NOISE)
             similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
             
-            if score > thresh * 1.5:
+            if score > thresh * 1.4:
                 status = "CRITICAL_ANOMALY"
             elif score > thresh * 0.65:
                 status = "WARNING"
@@ -323,16 +329,18 @@ def background_inference_loop():
             else:
                 vib_pct, ac_pct, th_pct = 33.3, 33.3, 33.4
                 
-            if curr_vib_std > 0.022 or gyro_dev > 0.3:
-                top_cause = f"Excess Vibration Motion ({vib_pct}%)"
-            elif sound_dev > 0.20 and curr_sound_energy < 0.090:
+            if curr_vib_std < 0.0010 and curr_sound_energy < 0.060:
+                top_cause = "PC Ceased Operation / Fan & Vibration Inactive"
+            elif curr_vib_std > 0.025 or gyro_dev > 0.3:
+                top_cause = f"Excess Vibration / Mechanical Motion ({vib_pct}%)"
+            elif sound_dev > 0.20 and curr_sound_energy < 0.060:
                 top_cause = f"Acoustic Floor (Fan Halted / Silent {ac_pct}%)"
-            elif temp_dev > 0.20 and curr_temp_delta < 0.8:
-                top_cause = f"Thermal Gradient (Chassis Cool / Displaced {th_pct}%)"
-            elif vib_dev > 0.15 and curr_vib_std < 0.001:
-                top_cause = f"Vibration Floor (Sensor Fault {vib_pct}%)"
-            elif ac_pct >= vib_pct and ac_pct >= th_pct:
-                top_cause = f"Acoustic Deviation ({ac_pct}%)"
+            elif sound_dev > 0.20 and curr_sound_energy > 0.450:
+                top_cause = f"External Acoustic Noise Disturbance ({ac_pct}%)"
+            elif temp_dev > 0.20 and curr_temp_delta < 0.70:
+                top_cause = f"Thermal Gradient (Chassis Cooled / Offline {th_pct}%)"
+            elif vib_dev > 0.15 and curr_vib_std < 0.0010:
+                top_cause = f"Vibration Loss (Engine Stopped {vib_pct}%)"
             else:
                 top_cause = "Operational Baseline Match" if status == "HEALTHY" else f"Behavioral Drift ({ac_pct}%)"
                 
