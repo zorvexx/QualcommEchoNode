@@ -113,7 +113,7 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
             _, out, err = ssh.exec_command(
                 "arduino-app-cli app start user:retrofit 2>&1 | tail -5"
             )
-            import time; time.sleep(35)
+            time.sleep(35)
             print(out.read().decode("utf-8", errors="replace")[:500])
 
             # Stop the app so it releases ttyHS1, then run our collector
@@ -232,6 +232,8 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
         sftp.close()
 
         # 5. Compile firmware, flash MCU, and start engine
+        if mode.upper() == "COLLECTION":
+            ssh.exec_command(f"rm -rf {REMOTE_APP_DIR}/data/{machine_id}_{session_id} 2>/dev/null")
         print(" -> Compiling firmware and starting app on Uno Q (takes ~15-20s)...")
         _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 1; arduino-app-cli app start user:retrofit 2>&1")
         out.read()

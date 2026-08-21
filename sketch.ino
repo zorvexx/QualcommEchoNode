@@ -6,7 +6,7 @@ constexpr uint32_t AUDIO_INTERVAL_US = 2000;    // 500 Hz Audio target
 constexpr uint32_t MLX_INTERVAL_US   = 500000;  // 2 Hz Temp target
 
 constexpr uint8_t IMU_BATCH_SIZE   = 5;
-constexpr uint8_t AUDIO_BATCH_SIZE = 20;
+constexpr uint8_t AUDIO_BATCH_SIZE = 10;
 
 constexpr uint8_t MLX_SDA_PIN = 2;
 constexpr uint8_t MLX_SCL_PIN = 3;
@@ -156,8 +156,8 @@ AudioSample audioBuf[AUDIO_BATCH_SIZE];
 uint8_t imuBufCount = 0;
 uint8_t audioBufCount = 0;
 
-char txImuBuf[300];
-char txAudioBuf[300];
+char txImuBuf[512];
+char txAudioBuf[512];
 
 uint32_t nextImuTime = 0;
 uint32_t nextAudioTime = 0;
