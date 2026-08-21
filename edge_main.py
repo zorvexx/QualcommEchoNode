@@ -282,16 +282,18 @@ def background_inference_loop():
             base_tmp_min = PHYSICAL_BASELINES.get("temp_delta_min", -3.50)
             base_tmp_max = PHYSICAL_BASELINES.get("temp_delta_max", +2.50)
             
-            # A. Vibration Deviation
+            # A. Vibration Deviation (Motor Kinetic State)
             if curr_vib_std < base_vib_min:
                 # Motor / fan ceased spinning completely (machine stopped)
-                vib_dev = 0.65 + ((base_vib_min - max(0.0, curr_vib_std)) / max(0.001, base_vib_min)) * 0.35
+                vib_drop_ratio = (base_vib_min - max(0.0, curr_vib_std)) / max(0.001, base_vib_min)
+                vib_dev = 1.0 + 0.5 * vib_drop_ratio # Heavy 1.0 - 1.5 penalty for motor shutdown
             elif curr_vib_std > base_vib_max:
                 # Excessive abnormal vibration or mechanical shock
                 vib_dev = min(1.5, (curr_vib_std - base_vib_max) / max(0.01, base_vib_max * 0.5))
             else:
-                # Normal operational vibration band
-                vib_dev = 0.0
+                # Normal operational vibration band with subtle natural micro-fluctuations
+                vib_mean = PHYSICAL_BASELINES.get("vib_std_mean", 0.130)
+                vib_dev = max(0.0, abs(curr_vib_std - vib_mean) / max(0.01, base_vib_max * 2.0)) * 0.15
                 
             # B. Gyroscope Stability (Resting Baseline: <= 2.2 deg/s)
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
@@ -299,14 +301,13 @@ def background_inference_loop():
             
             # C. Acoustic Deviation
             if curr_sound_energy < base_snd_min:
-                # Fan stopped / silent halt
-                sound_dev = 0.65 + ((base_snd_min - max(0.0, curr_sound_energy)) / max(0.01, base_snd_min)) * 0.35
+                sound_dev = 0.80 + ((base_snd_min - max(0.0, curr_sound_energy)) / max(0.01, base_snd_min)) * 0.40
             elif curr_sound_energy > base_snd_max:
-                # Loud noise / speaking loudly / environmental disturbance
                 sound_dev = min(1.5, (curr_sound_energy - base_snd_max) / max(0.1, base_snd_max * 0.4))
             else:
-                # Normal running acoustic band
-                sound_dev = 0.0
+                # Normal running acoustic band with subtle micro-fluctuations
+                sound_mean = PHYSICAL_BASELINES.get("sound_energy_mean", 0.400)
+                sound_dev = max(0.0, abs(curr_sound_energy - sound_mean) / max(0.05, base_snd_max)) * 0.10
                 
             # D. Thermal Gradient Distance
             if curr_temp_delta < base_tmp_min:
@@ -316,22 +317,30 @@ def background_inference_loop():
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score (35% Vib, 15% Gyro, 30% Sound, 20% Temp)
-            raw_anomaly_score = float(0.35 * vib_dev + 0.15 * gyro_dev + 0.30 * sound_dev + 0.20 * temp_dev)
+            # Composite Anomaly Score: If motor is stopped, vibration is the dominant ground truth (60%)
+            if curr_vib_std < base_vib_min:
+                raw_anomaly_score = float(0.60 * vib_dev + 0.20 * sound_dev + 0.10 * gyro_dev + 0.10 * temp_dev)
+            else:
+                raw_anomaly_score = float(0.40 * vib_dev + 0.25 * sound_dev + 0.15 * gyro_dev + 0.20 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
-            smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
+            smoothed_anomaly_score = 0.35 * smoothed_anomaly_score + 0.65 * raw_anomaly_score
             score = round(smoothed_anomaly_score, 3)
             thresh = 0.38
             
             # High-Precision Similarity Mapping:
-            # - Machine Running Normally (score ~0.00 - 0.03): Similarity ~96 - 99% (HEALTHY)
-            # - Machine Stopped / Offline (score ~0.55 - 0.85): Similarity ~18 - 33% (CRITICAL_ANOMALY)
-            # - Loud External Disturbance (score ~0.40 - 0.60): Similarity ~30 - 45% (WARNING / NOISE)
-            similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
+            # - High Speed Running:  Similarity ~97.2% - 99.4% (HEALTHY with lively micro-dynamics)
+            # - Medium / Low Speed:  Similarity ~91.0% - 96.0% (NORMAL)
+            # - Cooler OFF / Halt:   Similarity ~14.0% - 21.0% (CRITICAL_ANOMALY, rock solid low)
+            if curr_vib_std < base_vib_min:
+                sim_base = 100.0 * np.exp(-2.2 * score)
+                similarity = float(np.clip(sim_base, 14.0, 22.0))
+            else:
+                sim_base = 100.0 * np.exp(-1.4 * score)
+                similarity = float(np.clip(sim_base, 25.0, 99.4))
             similarity = round(similarity, 1)
             
-            if score > thresh * 1.4:
+            if score > thresh * 1.3 or curr_vib_std < base_vib_min:
                 status = "CRITICAL_ANOMALY"
             elif score > thresh * 0.65:
                 status = "WARNING"
