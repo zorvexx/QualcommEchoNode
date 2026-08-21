@@ -231,31 +231,75 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
         sftp.close()
 
         # 5. Compile firmware, flash MCU, and start engine
-        print(" -> Compiling firmware and starting app on Uno Q (takes ~15s)...")
+        print(" -> Compiling firmware and starting app on Uno Q (takes ~15-20s)...")
         _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 1; arduino-app-cli app start user:retrofit 2>&1")
         out.read()
-        import time
-        time.sleep(14)
-
-        print("\n" + "=" * 65)
-        print(f"[SUCCESS] Arduino Uno Q is now operating in [{mode.upper()}] mode!")
+        
         if mode.upper() == "MONITORING":
+            import time
+            time.sleep(12)
+            print("\n" + "=" * 65)
+            print("[SUCCESS] Arduino Uno Q is now operating in [MONITORING] mode!")
             print("  - Real-time Edge AI Inference is ACTIVE")
             print("  - Live telemetry is streaming over MQTT to: retrofit/telemetry/" + machine_id)
+            print("=" * 65)
+            ssh.close()
+            return
         else:
-            # Active Stream Verification for COLLECTION mode
+            # COLLECTION MODE: Wait until STM32 compiles and streams rows, then display live counter
+            print(" -> Waiting for STM32 initialization and active data stream...")
             remote_session_dir = f"{REMOTE_APP_DIR}/data/{machine_id}_{session_id}"
-            time.sleep(2)
-            _, out_wc, _ = ssh.exec_command(f"wc -l {remote_session_dir}/imu.csv 2>/dev/null")
-            wc_str = out_wc.read().decode('utf-8', errors='ignore').strip()
-            print(f"  - Data Acquisition is ACTIVE for machine: [{machine_id}]")
-            print(f"  - Recording raw sensor data to session: [{session_id}]")
-            if wc_str:
-                print(f"  - Verified Active Stream: {wc_str.split()[0]} initial IMU rows recorded")
-            print("  - When finished, stop it with: python deploy_to_unoq.py --mode STOP")
-        print("=" * 65)
-        ssh.close()
-        return
+            imu_f = f"{remote_session_dir}/imu.csv"
+            
+            # Wait up to 35s for first data rows
+            t_start = time.time()
+            active = False
+            while time.time() - t_start < 35:
+                _, out_wc, _ = ssh.exec_command(f"wc -l {imu_f} 2>/dev/null")
+                wc_str = out_wc.read().decode('utf-8', errors='ignore').strip()
+                if wc_str:
+                    try:
+                        rows = int(wc_str.split()[0])
+                        if rows > 5:
+                            active = True
+                            break
+                    except Exception:
+                        pass
+                time.sleep(2)
+                
+            print("\n" + "=" * 65)
+            print(f"[RECORDING ACTIVE] Machine: [{machine_id}]  Session: [{session_id}]")
+            print("  - Streaming live rows from Uno Q...")
+            print("  - Press Ctrl+C at any time to stop recording and finalize dataset")
+            print("=" * 65)
+            
+            start_rec = time.time()
+            imu_cnt = 0
+            aud_cnt = 0
+            tmp_cnt = 0
+            try:
+                while True:
+                    time.sleep(3)
+                    _, out_wc, _ = ssh.exec_command(f"wc -l {remote_session_dir}/*.csv 2>/dev/null")
+                    lines = out_wc.read().decode('utf-8', errors='ignore').strip().splitlines()
+                    for l in lines:
+                        parts = l.strip().split()
+                        if len(parts) >= 2:
+                            if 'imu.csv' in parts[1]: imu_cnt = max(0, int(parts[0]) - 1)
+                            elif 'audio.csv' in parts[1]: aud_cnt = max(0, int(parts[0]) - 1)
+                            elif 'temperature.csv' in parts[1]: tmp_cnt = max(0, int(parts[0]) - 1)
+                    
+                    elapsed = int(time.time() - start_rec)
+                    print(f"  [RECORDING] t={elapsed:3d}s | IMU: {imu_cnt:5,d} rows ({imu_cnt/50.0:4.1f}s) | Audio: {aud_cnt:6,d} | Temp: {tmp_cnt:3d}")
+            except KeyboardInterrupt:
+                print("\n\n -> Stopping recording on Uno Q...")
+                ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null")
+                time.sleep(1)
+                print(f"[SUCCESS] Recording finalized! Total IMU rows captured: {imu_cnt:,}")
+                print("You can now run: python download_dataset.py")
+                print("=" * 65)
+                ssh.close()
+                return
         
     except Exception as e:
         print(f"\n[ERROR] Deployment failed: {e}")
