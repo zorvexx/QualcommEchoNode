@@ -153,11 +153,17 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
         if mode.upper() in ["STOP", "OFF"]:
             print(" -> Stopping app user:retrofit on Uno Q...")
             ssh.exec_command("pkill -f 'collect.py' 2>/dev/null")
+            _, out_rows, _ = ssh.exec_command("ls -td /home/arduino/ArduinoApps/retrofit/python/data/*/ 2>/dev/null | head -1 | xargs -I {} wc -l {}imu.csv {}audio.csv {}temperature.csv 2>/dev/null")
+            row_summary = out_rows.read().decode('utf-8', errors='ignore').strip()
             _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit")
             out.read()
             ssh.close()
             print("[SUCCESS] Data collection / monitoring stopped on Uno Q!")
-            print("You can now run: python download_dataset.py")
+            if row_summary:
+                print("\nRecorded Session Summary on Board:")
+                for line in row_summary.splitlines():
+                    print(f"  {line}")
+            print("\nYou can now run: python download_dataset.py")
             print("=" * 65)
             return
 
@@ -225,24 +231,31 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
         sftp.close()
 
         # 5. Compile firmware, flash MCU, and start engine
-        print(" -> Compiling firmware and starting app on Uno Q (takes ~20s)...")
+        print(" -> Compiling firmware and starting app on Uno Q (takes ~15s)...")
         _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 1; arduino-app-cli app start user:retrofit 2>&1")
         out.read()
         import time
-        time.sleep(18)
+        time.sleep(14)
 
-        ssh.close()
-        
         print("\n" + "=" * 65)
         print(f"[SUCCESS] Arduino Uno Q is now operating in [{mode.upper()}] mode!")
         if mode.upper() == "MONITORING":
             print("  - Real-time Edge AI Inference is ACTIVE")
             print("  - Live telemetry is streaming over MQTT to: retrofit/telemetry/" + machine_id)
         else:
+            # Active Stream Verification for COLLECTION mode
+            remote_session_dir = f"{REMOTE_APP_DIR}/data/{machine_id}_{session_id}"
+            time.sleep(2)
+            _, out_wc, _ = ssh.exec_command(f"wc -l {remote_session_dir}/imu.csv 2>/dev/null")
+            wc_str = out_wc.read().decode('utf-8', errors='ignore').strip()
             print(f"  - Data Acquisition is ACTIVE for machine: [{machine_id}]")
             print(f"  - Recording raw sensor data to session: [{session_id}]")
+            if wc_str:
+                print(f"  - Verified Active Stream: {wc_str.split()[0]} initial IMU rows recorded")
             print("  - When finished, stop it with: python deploy_to_unoq.py --mode STOP")
         print("=" * 65)
+        ssh.close()
+        return
         
     except Exception as e:
         print(f"\n[ERROR] Deployment failed: {e}")
