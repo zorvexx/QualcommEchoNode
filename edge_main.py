@@ -275,21 +275,15 @@ def background_inference_loop():
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
             gyro_dev = (gyro_excess / 6.0)
             
-            # C. Acoustic Distance (Primary Active Fan-Hum Energy Detector)
-            # - Measured Fan Hum Energy: ~0.850V - 1.350V AC (sound_energy_v)
-            # - Fan Off / Halted: Silence drops to < 0.500V AC
-            # - External Loud Noise: Spikes > 1.700V AC
-            if curr_sound_energy < 0.600:
-                # Fan is OFF / Halted / Silence
-                sound_dev = 0.65 + ((0.600 - curr_sound_energy) / 0.500) * 0.35
-            elif curr_sound_energy > 1.700:
-                # Loud external noise / tapping / friction
-                sound_dev = (curr_sound_energy - 1.700) / 0.40
+            # C. Acoustic Distance: Quiet baseline -> 96-99% Healthy, Loud noise/shouting -> Anomaly
+            if curr_sound_energy > 0.450:
+                # External acoustic disturbance / loud noise / shouting
+                sound_dev = (curr_sound_energy - 0.450) / 0.35
             else:
-                # Active operational fan hum deadband (0.600V to 1.700V AC)
+                # Normal quiet machine operation (0.005V to 0.450V AC)
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Low weight when chassis is warm)
+            # D. Thermal Gradient Distance (Warm Operating Chassis: +0.8C to +12.0C)
             if curr_temp_delta < 0.8:
                 # Cold table / completely displaced
                 temp_dev = 0.50 + ((0.8 - curr_temp_delta) / 1.0) * 0.50
@@ -298,8 +292,8 @@ def background_inference_loop():
             else:
                 temp_dev = 0.0
                 
-            # Composite Anomaly Score: Acoustic carries 50% dominant weight for instant fan detection!
-            raw_anomaly_score = float(0.20 * vib_dev + 0.20 * gyro_dev + 0.50 * sound_dev + 0.10 * temp_dev)
+            # Composite Anomaly Score
+            raw_anomaly_score = float(0.35 * vib_dev + 0.25 * gyro_dev + 0.30 * sound_dev + 0.30 * temp_dev)
             
             # Smooth Persistence Filter (EMA)
             smoothed_anomaly_score = 0.40 * smoothed_anomaly_score + 0.60 * raw_anomaly_score
