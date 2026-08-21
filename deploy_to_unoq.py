@@ -226,10 +226,10 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
 
         # 5. Compile firmware, flash MCU, and start engine
         print(" -> Compiling firmware and starting app on Uno Q (takes ~20s)...")
-        _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit; sleep 1; sudo systemctl restart arduino-router; sleep 1; arduino-app-cli app start user:retrofit")
+        _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 1; arduino-app-cli app start user:retrofit 2>&1")
         out.read()
         import time
-        time.sleep(20)
+        time.sleep(18)
 
         ssh.close()
         

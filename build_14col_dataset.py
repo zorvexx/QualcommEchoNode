@@ -168,12 +168,14 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         session_path = sys.argv[1]
     else:
-        # Find all session directories and sort by mtime, picking the latest with real data
-        all_dirs = [d for d in os.listdir('.') if os.path.isdir(d) and ('laptop_' in d or 'idle_' in d)]
+        # Find all session directories containing raw sensor CSVs and pick the latest
+        excluded = {'models', 'ml_pipeline', 'web', 'retrofit-ai', '__pycache__', 'Autoencoder model', '.git'}
+        all_dirs = [d for d in os.listdir('.') if os.path.isdir(d) and not d.startswith('.') and d not in excluded]
         valid_dirs = []
         for d in all_dirs:
             imu = os.path.join(d, 'imu.csv')
-            if os.path.exists(imu) and os.path.getsize(imu) > 100:
+            aud = os.path.join(d, 'audio.csv')
+            if os.path.exists(imu) and os.path.exists(aud) and os.path.getsize(imu) > 100:
                 valid_dirs.append(d)
         if not valid_dirs:
             print("No populated session directories found.")
