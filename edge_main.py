@@ -196,6 +196,7 @@ latest_audio_peak = 1000
 
 latest_ax = 0.02
 latest_ay = 0.01
+latest_az = -0.83
 latest_gx = 0.0
 latest_gy = 0.0
 latest_gz = 0.0
