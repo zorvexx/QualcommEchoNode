@@ -225,7 +225,7 @@ class RetroFitHybridPipeline:
             'top_contributing_causes': top_features
         }
 
-    def save(self, model_dir):
+    def save(self, model_dir, physical_baselines=None):
         os.makedirs(model_dir, exist_ok=True)
         joblib.dump(self.scaler, os.path.join(model_dir, "scaler.pkl"))
         joblib.dump(self.gmm, os.path.join(model_dir, "gmm_state_model.pkl"))
@@ -249,7 +249,8 @@ class RetroFitHybridPipeline:
             'state_fingerprints': self.state_fingerprints,
             'state_thresholds': self.state_thresholds,
             'global_threshold': self.global_threshold,
-            'feature_columns': FEATURE_COLUMNS
+            'feature_columns': FEATURE_COLUMNS,
+            'physical_baselines': physical_baselines or {}
         }
         with open(os.path.join(model_dir, "hybrid_parameters.json"), "w") as f:
             json.dump(params, f, indent=2)

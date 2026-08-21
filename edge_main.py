@@ -47,6 +47,17 @@ if os.path.exists(CONFIG_PATH):
     except Exception:
         pass
 
+PHYSICAL_BASELINES = {}
+params_path = os.path.join(SCRIPT_DIR, "models", "hybrid_parameters.json")
+if os.path.exists(params_path):
+    try:
+        with open(params_path, "r") as f:
+            p_data = json.load(f)
+            PHYSICAL_BASELINES = p_data.get("physical_baselines", {})
+            print(f"[EDGE AI] Loaded Learned Physical Baselines: {PHYSICAL_BASELINES}", flush=True)
+    except Exception as e:
+        print(f"[EDGE AI] Warning reading hybrid_parameters: {e}", flush=True)
+
 MODE = config.get("mode", "MONITORING").upper()
 MACHINE_ID = config.get("machine_id", "laptop_01")
 SESSION_ID = config.get("session_id", "idle_01")
@@ -263,46 +274,45 @@ def background_inference_loop():
             curr_sound_volts = round((curr_sound_peak * 3.3) / 16383.0, 3)
             curr_temp_delta = round(curr_temp_obj - curr_temp_amb, 2)
             
-            # 1. DYNAMIC MULTI-MODAL SENSING ENGINE (PC CPU STRESSER & FAN HUM DETECTION)
-            # Physical Profile:
-            # - Running CPU Fan Hum: ~0.060V - 0.450V AC (mean ~0.23V on active CPU cooler)
-            # - PC Shutdown / Fan Stopped: Sound AC energy drops < 0.060V AC (silence)
-            # - Active CPU Heat Gradient: +0.7°C to +12.0°C with ZERO penalty
-            # - Running CPU Vibration: ~0.0012g - 0.025g std
+            # 1. DYNAMIC MULTI-MODAL SENSING ENGINE (DYNAMIC LEARNED PROFILE)
+            base_vib_min = PHYSICAL_BASELINES.get("vib_std_min", 0.050)
+            base_vib_max = PHYSICAL_BASELINES.get("vib_std_max", 0.300)
+            base_snd_min = PHYSICAL_BASELINES.get("sound_energy_min", 0.120)
+            base_snd_max = PHYSICAL_BASELINES.get("sound_energy_max", 0.950)
+            base_tmp_min = PHYSICAL_BASELINES.get("temp_delta_min", -3.50)
+            base_tmp_max = PHYSICAL_BASELINES.get("temp_delta_max", +2.50)
             
-            # A. Vibration Distance (Active CPU Stresser: 0.0012g to 0.025g)
-            if curr_vib_std < 0.0010:
-                # Motor / fan ceased spinning completely (PC stopped)
-                vib_dev = 0.60
-            elif curr_vib_std > 0.025:
-                # Abnormal excessive vibration or mechanical shock
-                vib_dev = min(1.5, (curr_vib_std - 0.025) / 0.025)
+            # A. Vibration Deviation
+            if curr_vib_std < base_vib_min:
+                # Motor / fan ceased spinning completely (machine stopped)
+                vib_dev = 0.65 + ((base_vib_min - max(0.0, curr_vib_std)) / max(0.001, base_vib_min)) * 0.35
+            elif curr_vib_std > base_vib_max:
+                # Excessive abnormal vibration or mechanical shock
+                vib_dev = min(1.5, (curr_vib_std - base_vib_max) / max(0.01, base_vib_max * 0.5))
             else:
-                # Normal subtle CPU vibration
+                # Normal operational vibration band
                 vib_dev = 0.0
                 
             # B. Gyroscope Stability (Resting Baseline: <= 2.2 deg/s)
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
             gyro_dev = min(1.5, gyro_excess / 6.0)
             
-            # C. Acoustic Distance: MAX9814 Active Fan Hum (0.40V-1.35V) -> Healthy, Fan Off (<0.40V) -> Anomaly, Loud Shout (>1.35V) -> Disturbance
-            if curr_sound_energy < 0.40:
-                # Fan stopped / silent PC halt (dead silence)
-                sound_dev = 0.65 + ((0.40 - max(0.0, curr_sound_energy)) / 0.40) * 0.35
-            elif curr_sound_energy > 1.35:
+            # C. Acoustic Deviation
+            if curr_sound_energy < base_snd_min:
+                # Fan stopped / silent halt
+                sound_dev = 0.65 + ((base_snd_min - max(0.0, curr_sound_energy)) / max(0.01, base_snd_min)) * 0.35
+            elif curr_sound_energy > base_snd_max:
                 # Loud noise / speaking loudly / environmental disturbance
-                sound_dev = min(1.5, (curr_sound_energy - 1.35) / 0.40)
+                sound_dev = min(1.5, (curr_sound_energy - base_snd_max) / max(0.1, base_snd_max * 0.4))
             else:
-                # Normal running CPU fan hum (0.40V to 1.35V AC)
+                # Normal running acoustic band
                 sound_dev = 0.0
                 
-            # D. Thermal Gradient Distance (Warm Operating Chassis: +0.7C to +12.0C)
-            if curr_temp_delta < 0.70:
-                # PC cooled down after shutdown or sensor removed
-                temp_dev = 0.55 + ((0.70 - curr_temp_delta) / 1.0) * 0.45
-            elif curr_temp_delta > 12.0:
-                # Overheating
-                temp_dev = min(1.5, (curr_temp_delta - 12.0) / 4.0)
+            # D. Thermal Gradient Distance
+            if curr_temp_delta < base_tmp_min:
+                temp_dev = min(1.5, (base_tmp_min - curr_temp_delta) / 2.0)
+            elif curr_temp_delta > base_tmp_max:
+                temp_dev = min(1.5, (curr_temp_delta - base_tmp_max) / 2.0)
             else:
                 temp_dev = 0.0
                 
@@ -315,9 +325,9 @@ def background_inference_loop():
             thresh = 0.38
             
             # High-Precision Similarity Mapping:
-            # - CPU Running under Stress (score ~0.00 - 0.03): Similarity ~96 - 99% (HEALTHY)
-            # - PC Shutdown / Fan Ceased (score ~0.55 - 0.85): Similarity ~18 - 33% (CRITICAL_ANOMALY)
-            # - Loud External Shout (score ~0.40 - 0.60):     Similarity ~30 - 45% (WARNING / NOISE)
+            # - Machine Running Normally (score ~0.00 - 0.03): Similarity ~96 - 99% (HEALTHY)
+            # - Machine Stopped / Offline (score ~0.55 - 0.85): Similarity ~18 - 33% (CRITICAL_ANOMALY)
+            # - Loud External Disturbance (score ~0.40 - 0.60): Similarity ~30 - 45% (WARNING / NOISE)
             similarity = float(np.clip(100.0 * np.exp(-2.0 * score), 0.0, 100.0))
             similarity = round(similarity, 1)
             
@@ -336,17 +346,17 @@ def background_inference_loop():
             else:
                 vib_pct, ac_pct, th_pct = 33.3, 33.3, 33.4
                 
-            if curr_vib_std < 0.0010 and curr_sound_energy < 0.40:
-                top_cause = "PC Ceased Operation / Fan & Vibration Inactive"
-            elif curr_vib_std > 0.025 or gyro_dev > 0.3:
+            if curr_vib_std < base_vib_min and curr_sound_energy < base_snd_min:
+                top_cause = "Machine Ceased Operation / Fan & Motor Inactive"
+            elif curr_vib_std > base_vib_max or gyro_dev > 0.3:
                 top_cause = f"Excess Vibration / Mechanical Motion ({vib_pct}%)"
-            elif sound_dev > 0.20 and curr_sound_energy < 0.40:
+            elif sound_dev > 0.20 and curr_sound_energy < base_snd_min:
                 top_cause = f"Acoustic Floor (Fan Halted / Silent {ac_pct}%)"
-            elif sound_dev > 0.20 and curr_sound_energy > 1.35:
+            elif sound_dev > 0.20 and curr_sound_energy > base_snd_max:
                 top_cause = f"External Acoustic Noise Disturbance ({ac_pct}%)"
-            elif temp_dev > 0.20 and curr_temp_delta < 0.70:
+            elif temp_dev > 0.20 and curr_temp_delta < base_tmp_min:
                 top_cause = f"Thermal Gradient (Chassis Cooled / Offline {th_pct}%)"
-            elif vib_dev > 0.15 and curr_vib_std < 0.0010:
+            elif vib_dev > 0.15 and curr_vib_std < base_vib_min:
                 top_cause = f"Vibration Loss (Engine Stopped {vib_pct}%)"
             else:
                 top_cause = "Operational Baseline Match" if status == "HEALTHY" else f"Behavioral Drift ({ac_pct}%)"
