@@ -16,16 +16,21 @@ import socket
 import subprocess
 import paramiko
 
+import concurrent.futures
+
 USERNAME = "arduino"
 PASSWORD = "Ganesha@2003"
 REMOTE_APP_DIR = "/home/arduino/ArduinoApps/retrofit/python"
-KNOWN_IPS = ["10.124.6.105", "192.168.29.219", "10.51.210.105", "unoq.local", "arduino.local"]
+KNOWN_IPS = ["10.51.210.105", "10.124.6.105", "192.168.29.219", "unoq.local", "arduino.local"]
 
-def find_board_ip():
+def find_board_ip(override_ip=None):
+    if override_ip:
+        return override_ip
+        
     for ip in KNOWN_IPS:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1.0)
+            s.settimeout(0.4)
             res = s.connect_ex((ip, 22))
             s.close()
             if res == 0: return ip
@@ -39,14 +44,35 @@ def find_board_ip():
                 if len(parts) >= 1: return parts[0]
     except Exception: pass
 
-    return "10.124.6.105"
+    # Sweep local /24 subnet if on Wi-Fi (e.g. 10.51.210.X)
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+        if local_ip.startswith("10.") or local_ip.startswith("192.168."):
+            prefix = ".".join(local_ip.split(".")[:3])
+            def check_subnet(i):
+                tgt = f"{prefix}.{i}"
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.25)
+                    if s.connect_ex((tgt, 22)) == 0:
+                        s.close()
+                        return tgt
+                    s.close()
+                except Exception: pass
+                return None
+            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as ex:
+                for r in ex.map(check_subnet, range(1, 255)):
+                    if r: return r
+    except Exception: pass
 
-def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01"):
+    return "10.51.210.105"
+
+def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", override_ip=None):
     workspace = os.path.dirname(os.path.abspath(__file__))
     local_models_dir = os.path.join(workspace, "models")
     local_main_py = os.path.join(workspace, "edge_main.py")
         
-    board_ip = find_board_ip()
+    board_ip = find_board_ip(override_ip)
     print("=" * 65)
     print(f"  CONNECTING TO ARDUINO UNO Q @ {board_ip}")
     print(f"  TARGET COMMAND/MODE: [{mode.upper()}]")
@@ -159,5 +185,6 @@ if __name__ == "__main__":
     parser.add_argument("--mode", default="MONITORING", choices=["COLLECTION", "MONITORING", "STOP", "OFF", "collection", "monitoring", "stop", "off"])
     parser.add_argument("--machine", default="laptop_01")
     parser.add_argument("--session", default="idle_01")
+    parser.add_argument("--ip", default=None, help="Directly specify Arduino Uno Q IP address")
     args = parser.parse_args()
-    deploy(mode=args.mode, machine_id=args.machine, session_id=args.session)
+    deploy(mode=args.mode, machine_id=args.machine, session_id=args.session, override_ip=args.ip)

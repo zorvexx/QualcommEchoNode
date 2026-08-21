@@ -11,19 +11,24 @@ import socket
 import subprocess
 import re
 
+import concurrent.futures
+import argparse
+
 USERNAME = "arduino"
 PASSWORD = "Ganesha@2003"
 REMOTE_DATA_DIR = "/home/arduino/ArduinoApps/retrofit/python/data"
 LOCAL_DEST = os.path.dirname(os.path.abspath(__file__))
 
-KNOWN_IPS = ["10.124.6.105", "192.168.29.219", "10.51.210.105", "unoq.local", "arduino.local"]
+KNOWN_IPS = ["10.51.210.105", "10.124.6.105", "192.168.29.219", "unoq.local", "arduino.local"]
 
-def find_board_ip():
-    # 1. First test quick connect on known IPs
+def find_board_ip(override_ip=None):
+    if override_ip:
+        return override_ip
+        
     for ip in KNOWN_IPS:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1.0)
+            s.settimeout(0.4)
             res = s.connect_ex((ip, 22))
             s.close()
             if res == 0:
@@ -31,10 +36,8 @@ def find_board_ip():
         except Exception:
             pass
 
-    # 2. Try scanning local ARP table for Arduino MAC or IP range
     try:
         output = subprocess.check_output("arp -a", shell=True).decode('utf-8', errors='ignore')
-        # Look for known MAC or subnets
         for line in output.splitlines():
             if "14-b5-cd-e7-69-83" in line.lower() or "14-b5-cd" in line.lower():
                 parts = line.split()
@@ -43,10 +46,30 @@ def find_board_ip():
     except Exception:
         pass
 
-    return "192.168.29.219" # fallback
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+        if local_ip.startswith("10.") or local_ip.startswith("192.168."):
+            prefix = ".".join(local_ip.split(".")[:3])
+            def check_subnet(i):
+                tgt = f"{prefix}.{i}"
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.25)
+                    if s.connect_ex((tgt, 22)) == 0:
+                        s.close()
+                        return tgt
+                    s.close()
+                except Exception: pass
+                return None
+            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as ex:
+                for r in ex.map(check_subnet, range(1, 255)):
+                    if r: return r
+    except Exception: pass
 
-def fetch_datasets():
-    board_ip = find_board_ip()
+    return "10.51.210.105"
+
+def fetch_datasets(override_ip=None):
+    board_ip = find_board_ip(override_ip)
     print(f"Connecting to Arduino Uno Q @ {board_ip}...")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -96,4 +119,7 @@ def fetch_datasets():
         print(f"[ERROR] Failed to fetch datasets: {e}")
 
 if __name__ == "__main__":
-    fetch_datasets()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip", default=None, help="Directly specify Arduino Uno Q IP address")
+    args = parser.parse_args()
+    fetch_datasets(override_ip=args.ip)
