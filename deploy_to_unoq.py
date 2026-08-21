@@ -10,6 +10,7 @@ Usage:
 
 import os
 import sys
+import time
 import json
 import argparse
 import socket
@@ -236,7 +237,6 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
         out.read()
         
         if mode.upper() == "MONITORING":
-            import time
             time.sleep(12)
             print("\n" + "=" * 65)
             print("[SUCCESS] Arduino Uno Q is now operating in [MONITORING] mode!")
