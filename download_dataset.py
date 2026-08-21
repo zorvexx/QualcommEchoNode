@@ -19,7 +19,7 @@ PASSWORD = "Ganesha@2003"
 REMOTE_DATA_DIR = "/home/arduino/ArduinoApps/retrofit/python/data"
 LOCAL_DEST = os.path.dirname(os.path.abspath(__file__))
 
-KNOWN_IPS = ["10.51.210.105", "10.124.6.105", "192.168.29.219", "unoq.local", "arduino.local"]
+KNOWN_IPS = ["192.168.29.219", "10.51.210.105", "10.124.6.105", "unoq.local", "arduino.local"]
 
 def find_board_ip(override_ip=None):
     if override_ip:

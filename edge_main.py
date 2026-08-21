@@ -430,6 +430,7 @@ def audio_batch(chunk: str):
 
 def imu_batch(chunk: str):
     global latest_ax, latest_ay, latest_az, latest_gx, latest_gy, latest_gz
+    global gyro_bias_gx, gyro_bias_gy, gyro_bias_gz, gyro_calib_samples, gyro_calib_done
     if imu_csv_file and not imu_csv_file.closed:
         try:
             imu_csv_file.write(chunk if chunk.endswith("\n") else chunk + "\n")
@@ -453,11 +454,11 @@ def imu_batch(chunk: str):
                 c_ax = round(raw_ax / 16384.0, 3)
                 c_ay = round(raw_ay / 16384.0, 3)
                 c_az = round(raw_az / 16384.0, 3)
+
                 # Auto-Tare Gyro Bias if stationary during initial boot window (~1.6 seconds)
-                global gyro_bias_gx, gyro_bias_gy, gyro_bias_gz, gyro_calib_samples, gyro_calib_done
                 if not gyro_calib_done:
                     gyro_calib_samples.append((raw_gx / 131.0, raw_gy / 131.0, raw_gz / 131.0))
-                    if len(gyro_calib_samples) >= 80: # 80 samples at 50 Hz = 1.6s
+                    if len(gyro_calib_samples) >= 80:
                         gxs = [g[0] for g in gyro_calib_samples]
                         gys = [g[1] for g in gyro_calib_samples]
                         gzs = [g[2] for g in gyro_calib_samples]

@@ -21,7 +21,7 @@ import concurrent.futures
 USERNAME = "arduino"
 PASSWORD = "Ganesha@2003"
 REMOTE_APP_DIR = "/home/arduino/ArduinoApps/retrofit/python"
-KNOWN_IPS = ["10.51.210.105", "10.124.6.105", "192.168.29.219", "unoq.local", "arduino.local"]
+KNOWN_IPS = ["192.168.29.219", "10.51.210.105", "10.124.6.105", "unoq.local", "arduino.local"]
 
 def find_board_ip(override_ip=None):
     if override_ip:
