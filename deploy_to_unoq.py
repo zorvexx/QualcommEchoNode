@@ -83,9 +83,76 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
     
     try:
         ssh.connect(board_ip, username=USERNAME, password=PASSWORD, timeout=8)
-        
+
+        # ── SERIAL_COLLECTION: bypass broken Bridge container completely ──
+        if mode.upper() == "SERIAL_COLLECTION":
+            sftp = ssh.open_sftp()
+            print(" -> Uploading sketch_serial.ino (plain Serial, no Bridge)...")
+            local_serial_sketch = os.path.join(workspace, "sketch_serial.ino")
+            if not os.path.exists(local_serial_sketch):
+                print("[ERROR] sketch_serial.ino not found in project folder!")
+                ssh.close(); return
+            sftp.put(local_serial_sketch, "/home/arduino/ArduinoApps/retrofit/sketch/sketch.ino")
+
+            print(" -> Uploading collect_serial.py to /tmp/collect.py on Uno Q...")
+            local_collector = os.path.join(workspace, "collect_serial.py")
+            if not os.path.exists(local_collector):
+                print("[ERROR] collect_serial.py not found!")
+                ssh.close(); return
+            sftp.put(local_collector, "/tmp/collect.py")
+            sftp.close()
+
+            # Stop existing app first
+            print(" -> Stopping existing RetroFit app...")
+            _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 1")
+            out.read()
+
+            # Flash the new sketch via arduino-app-cli (compiles and flashes STM32)
+            print(" -> Compiling & flashing sketch_serial.ino to STM32 (takes ~30s)...")
+            _, out, err = ssh.exec_command(
+                "arduino-app-cli app start user:retrofit 2>&1 | tail -5"
+            )
+            import time; time.sleep(35)
+            print(out.read().decode("utf-8", errors="replace")[:500])
+
+            # Stop the app so it releases ttyHS1, then run our collector
+            _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit 2>/dev/null; sleep 2")
+            out.read()
+
+            # Kill any previous collect.py
+            ssh.exec_command("pkill -f 'collect.py' 2>/dev/null")
+            time.sleep(1)
+
+            # Install pyserial if needed
+            ssh.exec_command("pip3 install pyserial --quiet 2>/dev/null &")
+            time.sleep(3)
+
+            # Start collector in background (nohup so it survives ssh disconnect)
+            cmd = f"nohup python3 /tmp/collect.py {machine_id} {session_id} > /tmp/collect_log.txt 2>&1 &"
+            print(f" -> Starting host-side serial collector ({machine_id}/{session_id})...")
+            ssh.exec_command(cmd)
+            time.sleep(3)
+
+            # Verify it's running
+            _, out, _ = ssh.exec_command("ps aux | grep collect.py | grep -v grep")
+            running = out.read().decode("utf-8", errors="replace").strip()
+            ssh.close()
+
+            print("\n" + "=" * 65)
+            if running:
+                print(f"[SUCCESS] Serial collector is RUNNING on Uno Q!")
+                print(f"  - Machine: [{machine_id}]  Session: [{session_id}]")
+                print(f"  - Live log: ssh arduino@{board_ip} 'tail -f /tmp/collect_log.txt'")
+                print(f"  - When done, stop with: python deploy_to_unoq.py --mode STOP")
+            else:
+                print("[WARNING] Collector may not have started. Check:")
+                print(f"  ssh arduino@{board_ip} 'cat /tmp/collect_log.txt'")
+            print("=" * 65)
+            return
+
         if mode.upper() in ["STOP", "OFF"]:
             print(" -> Stopping app user:retrofit on Uno Q...")
+            ssh.exec_command("pkill -f 'collect.py' 2>/dev/null")
             _, out, _ = ssh.exec_command("arduino-app-cli app stop user:retrofit")
             out.read()
             ssh.close()
@@ -182,7 +249,7 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", default="MONITORING", choices=["COLLECTION", "MONITORING", "STOP", "OFF", "collection", "monitoring", "stop", "off"])
+    parser.add_argument("--mode", default="MONITORING", choices=["COLLECTION", "SERIAL_COLLECTION", "MONITORING", "STOP", "OFF", "collection", "serial_collection", "monitoring", "stop", "off"])
     parser.add_argument("--machine", default="laptop_01")
     parser.add_argument("--session", default="idle_01")
     parser.add_argument("--ip", default=None, help="Directly specify Arduino Uno Q IP address")
