@@ -278,15 +278,15 @@ def background_inference_loop():
             gyro_excess = max(0.0, curr_gyro_mean - 2.2)
             gyro_dev = min(1.5, gyro_excess / 6.0)
             
-            # C. Acoustic Distance: Fan Hum (0.060V-0.450V) -> Healthy, Fan Off (<0.060V) -> Anomaly, Shout (>0.450V) -> Disturbance
-            if curr_sound_energy < 0.060:
-                # Fan stopped / silent PC halt
-                sound_dev = 0.65 + ((0.060 - max(0.0, curr_sound_energy)) / 0.060) * 0.35
-            elif curr_sound_energy > 0.450:
-                # Loud noise / speaking loudly / environmental spike
-                sound_dev = min(1.5, (curr_sound_energy - 0.450) / 0.35)
+            # C. Acoustic Distance: MAX9814 Active Fan Hum (0.40V-1.35V) -> Healthy, Fan Off (<0.40V) -> Anomaly, Loud Shout (>1.35V) -> Disturbance
+            if curr_sound_energy < 0.40:
+                # Fan stopped / silent PC halt (dead silence)
+                sound_dev = 0.65 + ((0.40 - max(0.0, curr_sound_energy)) / 0.40) * 0.35
+            elif curr_sound_energy > 1.35:
+                # Loud noise / speaking loudly / environmental disturbance
+                sound_dev = min(1.5, (curr_sound_energy - 1.35) / 0.40)
             else:
-                # Normal running fan hum
+                # Normal running CPU fan hum (0.40V to 1.35V AC)
                 sound_dev = 0.0
                 
             # D. Thermal Gradient Distance (Warm Operating Chassis: +0.7C to +12.0C)
@@ -329,13 +329,13 @@ def background_inference_loop():
             else:
                 vib_pct, ac_pct, th_pct = 33.3, 33.3, 33.4
                 
-            if curr_vib_std < 0.0010 and curr_sound_energy < 0.060:
+            if curr_vib_std < 0.0010 and curr_sound_energy < 0.40:
                 top_cause = "PC Ceased Operation / Fan & Vibration Inactive"
             elif curr_vib_std > 0.025 or gyro_dev > 0.3:
                 top_cause = f"Excess Vibration / Mechanical Motion ({vib_pct}%)"
-            elif sound_dev > 0.20 and curr_sound_energy < 0.060:
+            elif sound_dev > 0.20 and curr_sound_energy < 0.40:
                 top_cause = f"Acoustic Floor (Fan Halted / Silent {ac_pct}%)"
-            elif sound_dev > 0.20 and curr_sound_energy > 0.450:
+            elif sound_dev > 0.20 and curr_sound_energy > 1.35:
                 top_cause = f"External Acoustic Noise Disturbance ({ac_pct}%)"
             elif temp_dev > 0.20 and curr_temp_delta < 0.70:
                 top_cause = f"Thermal Gradient (Chassis Cooled / Offline {th_pct}%)"
