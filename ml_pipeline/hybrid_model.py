@@ -136,8 +136,8 @@ class RetroFitHybridPipeline:
         y = layers.Dense(32, activation='relu')(y)
         outputs = layers.Dense(len(feature_cols), activation='linear', name='reconstruction')(y)
         
-        self.autoencoder = keras.Model(inputs=inputs, outputs=outputs, name='EchoNode_Autoencoder')
-        self.encoder = keras.Model(inputs=inputs, outputs=latent, name='EchoNode_Fingerprint_Encoder')
+        self.autoencoder = keras.Model(inputs=inputs, outputs=outputs, name='RetroFit_Autoencoder')
+        self.encoder = keras.Model(inputs=inputs, outputs=latent, name='RetroFit_Fingerprint_Encoder')
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(1e-3), loss='mse')
         
         X_train, X_val = train_test_split(X_scaled, test_size=0.2, random_state=42)

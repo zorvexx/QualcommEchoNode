@@ -197,15 +197,18 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
                     sftp.put(local_file, f"{remote_models}/{mf}")
                     print(f"    - Uploaded {mf}")
                     
-        # 4. Update Remote config.json
         twilio_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
         twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        twilio_from = os.getenv("TWILIO_FROM_PHONE", "+15708730348")
+        twilio_target = os.getenv("TWILIO_TARGET_PHONE", "+918401782327")
         env_path = os.path.join(workspace, ".env")
         if os.path.exists(env_path):
             with open(env_path) as ef:
                 for line in ef:
                     if "TWILIO_ACCOUNT_SID=" in line: twilio_sid = line.split("=", 1)[1].strip()
                     elif "TWILIO_AUTH_TOKEN=" in line: twilio_token = line.split("=", 1)[1].strip()
+                    elif "TWILIO_FROM_PHONE=" in line: twilio_from = line.split("=", 1)[1].strip()
+                    elif "TWILIO_TARGET_PHONE=" in line: twilio_target = line.split("=", 1)[1].strip()
                     
         remote_config = {
             "mode": mode.upper(),
@@ -219,8 +222,8 @@ def deploy(mode="MONITORING", machine_id="laptop_01", session_id="idle_01", over
                 "enabled": bool(twilio_sid and twilio_token and "YOUR" not in twilio_sid),
                 "account_sid": twilio_sid,
                 "auth_token": twilio_token,
-                "from_phone": os.getenv("TWILIO_FROM_PHONE", "+15708730348"),
-                "target_phone": os.getenv("TWILIO_TARGET_PHONE", "+918401782327"),
+                "from_phone": twilio_from,
+                "target_phone": twilio_target,
                 "cooldown_seconds": 60
             }
         }

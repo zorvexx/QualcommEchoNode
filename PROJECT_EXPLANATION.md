@@ -1,4 +1,4 @@
-# 🧠 RetroFit (Qualcomm EchoNode) — The Complete Plain-English Guide
+# 🧠 RetroFit (Qualcomm RetroFit) — The Complete Plain-English Guide
 
 > **Welcome to the Project Guide!**  
 > This document explains **everything** about this project from the ground up. Whether you are presenting to judges, explaining it to your teammates, or studying how the code and hardware work together, this guide breaks down every concept without confusing math or ML jargon.
@@ -258,6 +258,6 @@ Here is the exact journey of a single vibration shock:
 ---
 
 ### 👥 Team Credits & Collaborators
-- **Project:** RetroFit / Qualcomm EchoNode
+- **Project:** RetroFit / Qualcomm RetroFit
 - **Target Platform:** Arduino Uno Q (Qualcomm Linux + STM32 Zephyr RTOS)
 - **Collaborators:** Rushwa50, Walterwhite10151, KahanMody15

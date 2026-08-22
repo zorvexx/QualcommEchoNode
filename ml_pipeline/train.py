@@ -34,8 +34,8 @@ def build_autoencoder(input_dim=52, latent_dim=8):
     y = layers.Dense(32, activation='relu', name='dec_dense2')(y)
     outputs = layers.Dense(input_dim, activation='linear', name='reconstruction')(y)
     
-    autoencoder = keras.Model(inputs=inputs, outputs=outputs, name='EchoNode_Autoencoder')
-    encoder = keras.Model(inputs=inputs, outputs=latent, name='EchoNode_Fingerprint_Encoder')
+    autoencoder = keras.Model(inputs=inputs, outputs=outputs, name='RetroFit_Autoencoder')
+    encoder = keras.Model(inputs=inputs, outputs=latent, name='RetroFit_Fingerprint_Encoder')
     
     autoencoder.compile(optimizer=keras.optimizers.Adam(learning_rate=0.001), loss='mse')
     return autoencoder, encoder
@@ -116,11 +116,11 @@ def train_model(features_df, output_dir, epochs=100, batch_size=32, val_split=0.
     }
     
     # Save artifacts
-    ae_path = os.path.join(output_dir, "echonode_autoencoder.keras")
-    enc_path = os.path.join(output_dir, "echonode_encoder.keras")
-    scaler_path = os.path.join(output_dir, "echonode_scaler.pkl")
-    params_path = os.path.join(output_dir, "echonode_anomaly_parameters.pkl")
-    json_params_path = os.path.join(output_dir, "echonode_anomaly_parameters.json")
+    ae_path = os.path.join(output_dir, "retrofit_autoencoder.keras")
+    enc_path = os.path.join(output_dir, "retrofit_encoder.keras")
+    scaler_path = os.path.join(output_dir, "retrofit_scaler.pkl")
+    params_path = os.path.join(output_dir, "retrofit_anomaly_parameters.pkl")
+    json_params_path = os.path.join(output_dir, "retrofit_anomaly_parameters.json")
     
     autoencoder.save(ae_path)
     encoder.save(enc_path)

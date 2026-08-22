@@ -1,5 +1,5 @@
 """
-RetroFit / EchoNode Feature Extraction Engine
+RetroFit / RetroFit Feature Extraction Engine
 Extracts 52 multimodal statistical and physical features over sliding windows
 from synchronized 14-column sensor data (IMU, Acoustic, Thermal).
 """

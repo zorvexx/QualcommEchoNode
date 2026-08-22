@@ -52,11 +52,11 @@ def main():
     print(f"Model Directory: {model_dir}")
     
     # 2. Extract Features
-    features_csv = os.path.join(model_dir, "echonode_features.csv")
+    features_csv = os.path.join(model_dir, "retrofit_features.csv")
     df_features = extract_dataset_features(data_path, window_size=400, step_size=200, output_csv=features_csv)
     
     # 3. Train Model (if requested or if models don't exist)
-    ae_file = os.path.join(model_dir, "echonode_autoencoder.keras")
+    ae_file = os.path.join(model_dir, "retrofit_autoencoder.keras")
     if args.retrain or not os.path.exists(ae_file):
         print("\n--- PHASE 1: MODEL TRAINING & FINGERPRINT EXTRACTION ---")
         params = train_model(df_features, model_dir, epochs=args.epochs)
@@ -66,7 +66,7 @@ def main():
     # 4. Inference & Explainability
     print("\n--- PHASE 2: INFERENCE & MULTIMODAL EXPLAINABILITY ---")
     engine = RetroFitInferEngine(model_dir)
-    results_csv = os.path.join(model_dir, "echonode_inference_results.csv")
+    results_csv = os.path.join(model_dir, "retrofit_inference_results.csv")
     df_results = engine.evaluate_features(df_features, output_results_csv=results_csv)
     
     n_total = len(df_results)

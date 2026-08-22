@@ -39,11 +39,11 @@ MODALITY_MAP = {
 class RetroFitInferEngine:
     def __init__(self, model_dir):
         self.model_dir = model_dir
-        self.autoencoder = keras.models.load_model(os.path.join(model_dir, "echonode_autoencoder.keras"))
-        self.encoder = keras.models.load_model(os.path.join(model_dir, "echonode_encoder.keras"))
-        self.scaler = joblib.load(os.path.join(model_dir, "echonode_scaler.pkl"))
+        self.autoencoder = keras.models.load_model(os.path.join(model_dir, "retrofit_autoencoder.keras"))
+        self.encoder = keras.models.load_model(os.path.join(model_dir, "retrofit_encoder.keras"))
+        self.scaler = joblib.load(os.path.join(model_dir, "retrofit_scaler.pkl"))
         
-        with open(os.path.join(model_dir, "echonode_anomaly_parameters.pkl"), "rb") as f:
+        with open(os.path.join(model_dir, "retrofit_anomaly_parameters.pkl"), "rb") as f:
             self.params = pickle.load(f)
             
         self.feature_names = self.params.get('feature_names', list(self.scaler.feature_names_in_) if hasattr(self.scaler, 'feature_names_in_') else None)

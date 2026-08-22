@@ -16,8 +16,8 @@ def export_tflite_models(model_dir, output_dir=None):
         output_dir = model_dir
     os.makedirs(output_dir, exist_ok=True)
     
-    ae_path = os.path.join(model_dir, "echonode_autoencoder.keras")
-    enc_path = os.path.join(model_dir, "echonode_encoder.keras")
+    ae_path = os.path.join(model_dir, "retrofit_autoencoder.keras")
+    enc_path = os.path.join(model_dir, "retrofit_encoder.keras")
     
     # 1. Convert Autoencoder to TFLite
     ae_model = keras.models.load_model(ae_path)
